@@ -11,7 +11,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const path_1 = __importDefault(require("path"));
 const child_process_1 = require("child_process");
 const fs_1 = require("fs");
-const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+const pnpm = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
 const rootDir = path_1.default.resolve(__dirname, '..', '..');
 function runProcess(command, args = []) {
     return new Promise((resolve, reject) => {
@@ -31,24 +31,27 @@ async function exists(subdir) {
 }
 async function ensureNodeModules() {
     if (!(await exists('node_modules'))) {
-        await runProcess(npm, ['ci']);
+        await runProcess(pnpm, ['install']);
     }
 }
 async function getElectron() {
-    await runProcess(npm, ['run', 'electron']);
+    await runProcess(pnpm, ['run', 'electron']);
 }
 async function ensureCompiled() {
     if (!(await exists('out'))) {
-        await runProcess(npm, ['run', 'compile']);
+        await runProcess(pnpm, ['run', 'compile']);
+    }
+}
+async function ensureExtensions() {
+    if (!(await exists('extensions'))) {
+        await fs_1.promises.mkdir('extensions');
     }
 }
 async function main() {
     await ensureNodeModules();
     await getElectron();
     await ensureCompiled();
-    // Can't require this until after dependencies are installed
-    const { getBuiltInExtensions } = require('./builtInExtensions');
-    await getBuiltInExtensions();
+    await ensureExtensions();
 }
 if (require.main === module) {
     main().catch(err => {

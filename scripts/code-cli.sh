@@ -23,12 +23,6 @@ function code() {
 		node build/lib/preLaunch.js
 	fi
 
-	# Manage built-in extensions
-	if [[ "$1" == "--builtin" ]]; then
-		exec "$CODE" build/builtin
-		return
-	fi
-
 	ELECTRON_RUN_AS_NODE=1 \
 	NODE_ENV=development \
 	VSCODE_DEV=1 \

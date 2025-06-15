@@ -21,7 +21,7 @@ const _specifierToUrl: Record<string, string> = {};
 export async function initialize(injectPath: string): Promise<void> {
 	// populate mappings
 
-	const injectPackageJSONPath = fileURLToPath(new URL('../package.json', pathToFileURL(injectPath)));
+	const injectPackageJSONPath = fileURLToPath(new URL('package.json', pathToFileURL(injectPath)));
 	const packageJSON = JSON.parse(String(await promises.readFile(injectPackageJSONPath)));
 
 	for (const [name] of Object.entries(packageJSON.dependencies)) {
