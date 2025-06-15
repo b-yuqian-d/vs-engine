@@ -87,7 +87,7 @@ function createAsar(folderPath, unpackGlobs, skipGlobs, duplicateGlobs, destFile
         }
         if (shouldSkipFile(file)) {
             this.queue(new vinyl_1.default({
-                base: '.',
+                base: file.base,
                 path: file.path,
                 stat: file.stat,
                 contents: file.contents
@@ -96,7 +96,7 @@ function createAsar(folderPath, unpackGlobs, skipGlobs, duplicateGlobs, destFile
         }
         if (shouldDuplicateFile(file)) {
             this.queue(new vinyl_1.default({
-                base: '.',
+                base: file.base,
                 path: file.path,
                 stat: file.stat,
                 contents: file.contents
@@ -108,7 +108,7 @@ function createAsar(folderPath, unpackGlobs, skipGlobs, duplicateGlobs, destFile
             // The file goes outside of xx.asar, in a folder xx.asar.unpacked
             const relative = path_1.default.relative(folderPath, file.path);
             this.queue(new vinyl_1.default({
-                base: '.',
+                base: file.base,
                 path: path_1.default.join(destFilename + '.unpacked', relative),
                 stat: file.stat,
                 contents: file.contents

@@ -76,7 +76,7 @@ function hasSupportedVisualStudioVersion() {
 }
 
 function installHeaders() {
-	cp.execSync(`npm.cmd ${process.env['npm_command'] || 'ci'}`, {
+	cp.execSync(`pnpm.cmd install`, {
 		env: process.env,
 		cwd: path.join(__dirname, 'gyp'),
 		stdio: 'inherit'
