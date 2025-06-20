@@ -304,6 +304,7 @@ export class PlaywrightDriver {
 	}
 
 	private async evaluateWithDriver<T>(pageFunction: PageFunction<IWindowDriver[], T>) {
+		// @ts-ignore
 		return this.page.evaluate(pageFunction, [await this.getDriverHandle()]);
 	}
 
