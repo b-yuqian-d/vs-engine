@@ -169,6 +169,3 @@ for (let dir of dirs) {
 
 	pnpmInstall(dir, opts);
 }
-
-cp.execSync('git config pull.rebase merges');
-cp.execSync('git config blame.ignoreRevsFile .git-blame-ignore-revs');
