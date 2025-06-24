@@ -297,6 +297,8 @@ function packageTask(platform, arch, sourceFolderName, destinationFolderName, op
 				'node_modules/vsda/**' // retain copy of `vsda` in node_modules for internal use
 			], 'node_modules.asar'));
 
+		const extensions = gulp.src('extensions/**', { base: '.', dot: true })
+
 		let all = es.merge(
 			packageJsonStream,
 			productJsonStream,
@@ -304,7 +306,8 @@ function packageTask(platform, arch, sourceFolderName, destinationFolderName, op
 			api,
 			telemetry,
 			sources,
-			deps
+			deps,
+			extensions
 		);
 
 		if (platform === 'win32') {

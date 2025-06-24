@@ -25,7 +25,6 @@ const flatmap = require('gulp-flatmap');
 const gunzip = require('gulp-gunzip');
 const File = require('vinyl');
 const fs = require('fs');
-const glob = require('glob');
 const { compileBuildWithManglingTask } = require('./gulpfile.compile');
 const { vscodeWebResourceIncludes, createVSCodeWebFileContentMapper } = require('./gulpfile.vscode.web');
 const cp = require('child_process');
@@ -307,6 +306,8 @@ function packageTask(type, platform, arch, sourceFolderName, destinationFolderNa
 			].map(resource => gulp.src(resource, { base: '.' }).pipe(rename(resource)));
 		}
 
+		const extensions = gulp.src('extensions/**', { base: '.', dot: true })
+
 		const all = es.merge(
 			packageJsonStream,
 			productJsonStream,
@@ -314,6 +315,7 @@ function packageTask(type, platform, arch, sourceFolderName, destinationFolderNa
 			sources,
 			deps,
 			node,
+			extensions,
 			...web
 		);
 

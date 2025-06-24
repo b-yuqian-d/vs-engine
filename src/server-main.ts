@@ -22,6 +22,9 @@ import { IServerAPI } from './vs/server/node/remoteExtensionHostAgentServer.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+const SIGINT_EXIT_CODE = 130;
+const SIGTERM_EXIT_CODE = 143;
+
 perf.mark('code/server/start');
 (globalThis as any).vscodeServerStartTime = performance.now();
 
@@ -146,11 +149,28 @@ if (shouldSpawnCli) {
 		await getRemoteExtensionHostAgentServer();
 	});
 
-	process.on('exit', () => {
+	process.on('exit', (code) => {
+		if (code === SIGINT_EXIT_CODE || code === SIGTERM_EXIT_CODE) {
+			return;
+		}
 		server.close();
 		if (_remoteExtensionHostAgentServer) {
 			_remoteExtensionHostAgentServer.dispose();
 		}
+	});
+	process.on('SIGTERM', () => {
+		server.close();
+		if (_remoteExtensionHostAgentServer) {
+			_remoteExtensionHostAgentServer.dispose();
+		}
+		process.exit(SIGTERM_EXIT_CODE);
+	});
+	process.on('SIGINT', () => {
+		server.close();
+		if (_remoteExtensionHostAgentServer) {
+			_remoteExtensionHostAgentServer.dispose();
+		}
+		process.exit(SIGINT_EXIT_CODE);
 	});
 }
 

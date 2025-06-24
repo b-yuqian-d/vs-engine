@@ -1,3 +1,3 @@
 #!/usr/bin/env bash
 
-docker buildx build --tag 'code-server:latest' .
+docker buildx build --target runtime --tag 'code-server:latest' .
