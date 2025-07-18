@@ -27,6 +27,9 @@ jobs:
       - run: 'pnpm install'
   build-win32:
     runs-on: windows-2022
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
