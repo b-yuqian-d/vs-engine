@@ -5,6 +5,9 @@ jobs:
   build-linux:
     runs-on: ubuntu-22.04
     steps:
+      - run: |
+          sudo apt-get update
+          sudo apt-get install build-essential g++ libx11-dev libxkbfile-dev libsecret-1-dev libkrb5-dev python-is-python3
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
