@@ -23,7 +23,7 @@ jobs:
           cache: pnpm
       - run: 'pnpm install'
   build-win32:
-    runs-on: macos-14
+    runs-on: windows-2022
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
