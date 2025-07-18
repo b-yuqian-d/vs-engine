@@ -34,4 +34,6 @@ jobs:
         with:
           node-version-file: '.nvmrc'
           cache: pnpm
-      - run: 'pnpm install'
+      - run: |
+          pnpm preinstall
+          ls -al build/npm/gyp
