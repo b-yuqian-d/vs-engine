@@ -38,5 +38,7 @@ jobs:
           node-version-file: '.nvmrc'
           cache: pnpm
       - run: |
+          pnpm install 'node-gyp@*'
+      - run: |
           pnpm install
           ls -al node_modules/node-gyp
