@@ -39,6 +39,7 @@ jobs:
           cache: pnpm
       - run: |
           pnpm install 'node-gyp@*'
+          pnpm run preinstall
+          ls -al node_modules/node-gyp
       - run: |
           pnpm install
-          ls -al node_modules/node-gyp
