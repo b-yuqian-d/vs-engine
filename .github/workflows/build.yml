@@ -2,8 +2,28 @@ name: build
 on:
   workflow_call
 jobs:
-  build:
+  build-linux:
     runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: pnpm
+      - run: 'pnpm install'
+  build-darwin:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: pnpm
+      - run: 'pnpm install'
+  build-win32:
+    runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
