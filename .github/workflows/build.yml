@@ -25,3 +25,16 @@ jobs:
           node-version-file: '.nvmrc'
           cache: pnpm
       - run: 'pnpm install'
+  build-win32:
+    runs-on: windows-2022
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: pnpm
+      - run: 'pnpm install'
