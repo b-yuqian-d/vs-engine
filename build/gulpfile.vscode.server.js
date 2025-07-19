@@ -25,7 +25,7 @@ const flatmap = require('gulp-flatmap');
 const gunzip = require('gulp-gunzip');
 const File = require('vinyl');
 const fs = require('fs');
-const { compileBuildWithManglingTask } = require('./gulpfile.compile');
+const { compileBuildWithManglingTask, compileBuildWithoutManglingTask} = require('./gulpfile.compile');
 const { vscodeWebResourceIncludes, createVSCodeWebFileContentMapper } = require('./gulpfile.vscode.web');
 const cp = require('child_process');
 const log = require('fancy-log');
@@ -432,7 +432,7 @@ function tweakProductForServerWeb(product) {
 			}
 
 			const serverTask = task.define(`vscode-${type}${dashed(platform)}${dashed(arch)}${dashed(minified)}`, task.series(
-				compileBuildWithManglingTask,
+				compileBuildWithoutManglingTask,
 				minified ? minifyTask : bundleTask,
 				serverTaskCI
 			));
