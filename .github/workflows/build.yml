@@ -1,9 +1,15 @@
 name: build
 on:
-  workflow_call
+  workflow_call:
+    inputs:
+      artifact-name:
+        type: string
+        default: ''
 jobs:
   build-linux:
     runs-on: ubuntu-22.04
+    env:
+      PACKAGE_NAME: '${{ inputs.artifact-name }}-linux-x64'
     steps:
       - run: |
           sudo apt-get update
@@ -19,8 +25,18 @@ jobs:
           pnpm gulp vscode-min
       - run: |
           ls -lh out-packages
+          tar -czf ${{ env.PACKAGE_NAME }}.tar.gz -C out-packages VSCode-linux-x64
+        if: ${{ inputs.artifact-name }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.PACKAGE_NAME }}
+          path: out-packages/*.tar.gz
+          if-no-files-found: error
+        if: ${{ inputs.artifact-name }}
   build-darwin:
     runs-on: macos-14
+    env:
+      PACKAGE_NAME: '${{ inputs.artifact-name }}-darwin-arm64'
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -33,8 +49,18 @@ jobs:
           pnpm gulp vscode-min
       - run: |
           ls -lh out-packages
+          tar -czf ${{ env.PACKAGE_NAME }}.tar.gz -C out-packages VSCode-darwin-arm64
+        if: ${{ inputs.artifact-name }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.PACKAGE_NAME }}
+          path: out-packages/*.tar.gz
+          if-no-files-found: error
+        if: ${{ inputs.artifact-name }}
   build-win32:
     runs-on: windows-2022
+    env:
+      PACKAGE_NAME: '${{ inputs.artifact-name }}-win32-x64'
     defaults:
       run:
         shell: bash
@@ -50,3 +76,11 @@ jobs:
           pnpm gulp vscode-min
       - run: |
           ls -lh out-packages
+          tar -czf ${{ env.PACKAGE_NAME }}.tar.gz -C out-packages VSCode-win32-x64
+        if: ${{ inputs.artifact-name }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.PACKAGE_NAME }}
+          path: out-packages/*.tar.gz
+          if-no-files-found: error
+        if: ${{ inputs.artifact-name }}
