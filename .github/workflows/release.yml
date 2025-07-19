@@ -26,7 +26,7 @@ jobs:
       - build
     env:
       RELEASE_MANAGEMENT_TOKEN: ${{ secrets.ACCESS_TOKEN_FOR_RELEASE_MANAGEMENT }}
-      PACKAGE_NAME: 'vscode-${{ env.RELEASE_VERSION }}-${{ matrix.platform }}-${{ matrix.arch }}'
+      PACKAGE_NAME: 'vscode-${{ github.ref_name }}-${{ matrix.platform }}-${{ matrix.arch }}'
     steps:
       - name: download-artifact
         uses: actions/download-artifact@v4
