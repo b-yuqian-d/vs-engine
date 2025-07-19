@@ -414,7 +414,7 @@ function packageTask(platform, arch, sourceFolderName, destinationFolderName, op
 }
 
 function patchWin32DependenciesTask(destinationFolderName) {
-	const cwd = path.join(path.dirname(REPO_ROOT), destinationFolderName);
+	const cwd = path.join(REPO_ROOT, 'out-packages', destinationFolderName);
 
 	return async () => {
 		const deps = await glob('**/*.node', { cwd, ignore: 'extensions/node_modules/@parcel/watcher/**' });
