@@ -15,8 +15,4 @@ jobs:
           node-version-file: '.nvmrc'
           cache: pnpm
       - run: |
-          pnpm install --ignore-scripts
-          pnpm run preinstall
-          ls -alL node_modules/node-gyp
-      - run: |
           pnpm install

@@ -77,10 +77,6 @@ function hasSupportedVisualStudioVersion() {
 
 function installHeaders() {
 	const root = path.join(__dirname, '..', '..');
-
-	// The node gyp package got installed using the above npm command using the gyp/package.json
-	// file checked into our repository. So from that point it is save to construct the path
-	// to that executable
 	const node_gyp = path.join(root, 'node_modules', '.bin', 'node-gyp.cmd');
 	const result = cp.execFileSync(node_gyp, ['list'], { encoding: 'utf8', shell: true });
 	const versions = new Set(result.split(/\n/g).filter(line => !line.startsWith('gyp info')).map(value => value));
