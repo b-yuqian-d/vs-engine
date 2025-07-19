@@ -14,7 +14,11 @@ jobs:
         with:
           node-version-file: '.nvmrc'
           cache: pnpm
-      - run: 'pnpm install'
+      - run: |
+          pnpm install
+          pnpm gulp vscode-min
+      - run: |
+          ls -lh out-packages
   build-darwin:
     runs-on: macos-14
     steps:
@@ -24,7 +28,11 @@ jobs:
         with:
           node-version-file: '.nvmrc'
           cache: pnpm
-      - run: 'pnpm install'
+      - run: |
+          pnpm install
+          pnpm gulp vscode-min
+      - run: |
+          ls -lh out-packages
   build-win32:
     runs-on: windows-2022
     defaults:
@@ -37,4 +45,8 @@ jobs:
         with:
           node-version-file: '.nvmrc'
           cache: pnpm
-      - run: 'pnpm install'
+      - run: |
+          pnpm install
+          pnpm gulp vscode-min
+      - run: |
+          ls -lh out-packages
