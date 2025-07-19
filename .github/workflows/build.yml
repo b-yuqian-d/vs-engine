@@ -30,7 +30,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ env.PACKAGE_NAME }}
-          path: out-packages/*.tar.gz
+          path: ${{ env.PACKAGE_NAME }}.tar.gz
           if-no-files-found: error
         if: ${{ inputs.artifact-name }}
   build-darwin:
@@ -54,7 +54,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ env.PACKAGE_NAME }}
-          path: out-packages/*.tar.gz
+          path: ${{ env.PACKAGE_NAME }}.tar.gz
           if-no-files-found: error
         if: ${{ inputs.artifact-name }}
   build-win32:
@@ -80,7 +80,7 @@ jobs:
         if: ${{ inputs.artifact-name }}
       - uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.PACKAGE_NAME }}
-          path: out-packages/*.tar.gz
+          name: ${{ env.package_name }}
+          path: ${{ env.package_name }}.tar.gz
           if-no-files-found: error
         if: ${{ inputs.artifact-name }}
