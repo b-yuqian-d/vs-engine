@@ -1,0 +1,77 @@
+name: test
+on:
+  workflow_call
+jobs:
+  unit-test-linux:
+    runs-on: ubuntu-22.04
+    steps:
+      - run: |
+          sudo apt-get update
+          sudo apt-get install build-essential g++ libx11-dev libxkbfile-dev libsecret-1-dev libkrb5-dev python-is-python3
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: pnpm
+      - run: |
+          pnpm install
+      - name: build
+        run: |
+          pnpm gulp compile
+      - name: test-electron
+        run: |
+          export DISPLAY=:99
+          Xvfb :99 -screen 0 1024x768x24 > /dev/null 2>&1 &
+          ./scripts/test.sh
+      - name: test-browser
+        run: |
+          pnpm run test-browser
+      - name: test-node
+        run: |
+          pnpm run test-node
+  unit-test-darwin:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: pnpm
+      - run: |
+          pnpm install
+      - name: build
+        run: |
+          pnpm gulp compile
+      - name: test-electron
+        run: ./scripts/test.sh
+      - name: test-browser
+        run: |
+          pnpm run test-browser
+      - name: test-node
+        run: |
+          pnpm run test-node
+  unit-test-win32:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: pnpm
+      - shell: bash
+        run: |
+          pnpm install
+      - name: build
+        run: |
+          pnpm gulp compile
+      - name: test-electron
+        run: ./scripts/test.bat
+      - name: test-browser
+        run: |
+          pnpm run test-browser
+      - name: test-node
+        run: |
+          pnpm run test-node

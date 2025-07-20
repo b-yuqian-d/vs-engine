@@ -24,7 +24,6 @@ const extensions = require('./lib/extensions');
 const VinylFile = require('vinyl');
 
 const REPO_ROOT = path.dirname(__dirname);
-const BUILD_ROOT = path.dirname(REPO_ROOT);
 const WEB_FOLDER = path.join(REPO_ROOT, 'remote', 'web');
 
 const commit = getVersion(REPO_ROOT);
@@ -130,6 +129,7 @@ const bundleVSCodeWebTask = task.define('bundle-vscode-web', task.series(
 		}
 	)
 ));
+gulp.task(bundleVSCodeWebTask);
 
 const minifyVSCodeWebTask = task.define('minify-vscode-web', task.series(
 	bundleVSCodeWebTask,
@@ -139,7 +139,7 @@ const minifyVSCodeWebTask = task.define('minify-vscode-web', task.series(
 gulp.task(minifyVSCodeWebTask);
 
 function packageTask(sourceFolderName, destinationFolderName) {
-	const destination = path.join(BUILD_ROOT, destinationFolderName);
+	const destination = path.join(REPO_ROOT, 'out-packages', destinationFolderName);
 
 	return () => {
 		const json = require('gulp-json-editor');
@@ -147,11 +147,9 @@ function packageTask(sourceFolderName, destinationFolderName) {
 		const src = gulp.src(sourceFolderName + '/**', { base: '.' })
 			.pipe(rename(function (path) { path.dirname = path.dirname.replace(new RegExp('^' + sourceFolderName), 'out'); }));
 
-		const extensions = gulp.src('.build/web/extensions/**', { base: '.build/web', dot: true });
-
 		const loader = gulp.src('build/loader.min', { base: 'build', dot: true }).pipe(rename('out/vs/loader.js')); // TODO@esm remove line when we stop supporting web-amd-esm-bridge
 
-		const sources = es.merge(src, extensions, loader)
+		const sources = es.merge(src, loader)
 			.pipe(filter(['**', '!**/*.js.map'], { dot: true }))
 			// TODO@esm remove me once we stop supporting our web-esm-bridge
 			.pipe(es.through(function (file) {
@@ -203,14 +201,6 @@ function packageTask(sourceFolderName, destinationFolderName) {
 	};
 }
 
-const compileWebExtensionsBuildTask = task.define('compile-web-extensions-build', task.series(
-	task.define('clean-web-extensions-build', util.rimraf('.build/web/extensions')),
-	task.define('bundle-web-extensions-build', () => extensions.packageAllLocalExtensionsStream(true, false).pipe(gulp.dest('.build/web'))),
-	task.define('bundle-marketplace-web-extensions-build', () => extensions.packageMarketplaceExtensionsStream(true).pipe(gulp.dest('.build/web'))),
-	task.define('bundle-web-extension-media-build', () => extensions.buildExtensionMedia(false, '.build/web/extensions')),
-));
-gulp.task(compileWebExtensionsBuildTask);
-
 const dashed = (/** @type {string} */ str) => (str ? `-${str}` : ``);
 
 ['', 'min'].forEach(minified => {
@@ -218,9 +208,8 @@ const dashed = (/** @type {string} */ str) => (str ? `-${str}` : ``);
 	const destinationFolderName = `vscode-web`;
 
 	const vscodeWebTaskCI = task.define(`vscode-web${dashed(minified)}-ci`, task.series(
-		compileWebExtensionsBuildTask,
 		minified ? minifyVSCodeWebTask : bundleVSCodeWebTask,
-		util.rimraf(path.join(BUILD_ROOT, destinationFolderName)),
+		util.rimraf(path.join(REPO_ROOT, 'out-packages', destinationFolderName)),
 		packageTask(sourceFolderName, destinationFolderName)
 	));
 	gulp.task(vscodeWebTaskCI);

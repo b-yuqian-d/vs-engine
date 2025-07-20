@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as fsPromise from 'fs/promises';
-import path from 'path';
+import * as path from 'path';
 import * as http from 'http';
 import * as parcelWatcher from '@parcel/watcher';
 
@@ -315,6 +315,7 @@ function makeLoaderJsHotReloadable(loaderJsCode: string, fileChangesUrl: URL): s
 					return;
 				}
 
+				// @ts-ignore
 				const styleSheet = (([...document.querySelectorAll(`link[rel='stylesheet']`)] as HTMLLinkElement[]))
 					.find(l => new URL(l.href, document.location.href).pathname.endsWith(relativePath));
 				if (styleSheet) {

@@ -13,9 +13,6 @@ set NAMESHORT=%NAMESHORT: "=%
 set NAMESHORT=%NAMESHORT:"=%.exe
 set CODE=".build\electron\%NAMESHORT%"
 
-:: Manage built-in extensions
-if "%~1"=="--builtin" goto builtin
-
 :: Configuration
 set ELECTRON_RUN_AS_NODE=1
 set NODE_ENV=development

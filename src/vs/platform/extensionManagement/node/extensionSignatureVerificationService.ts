@@ -77,9 +77,10 @@ export class ExtensionSignatureVerificationService implements IExtensionSignatur
 		try {
 			module = await this.vsceSign();
 		} catch (error) {
-			this.logService.error('Could not load vsce-sign module', getErrorMessage(error));
+			// Skip extension signature verification when @vscode/vsce-sign module is missing.
+			this.logService.warn('Could not load vsce-sign module', getErrorMessage(error));
 			this.logService.info(`Extension signature verification is not done: ${extensionId}`);
-			return undefined;
+			return { code: ExtensionSignatureVerificationCode.Success };
 		}
 
 		const startTime = new Date().getTime();

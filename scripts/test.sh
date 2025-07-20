@@ -21,10 +21,10 @@ fi
 VSCODECRASHDIR=$ROOT/.build/crashes
 
 # Node modules
-test -d node_modules || npm i
+test -d node_modules || pnpm install
 
 # Get electron
-npm run electron
+pnpm run electron
 
 # Unit Tests
 if [[ "$OSTYPE" == "darwin"* ]]; then

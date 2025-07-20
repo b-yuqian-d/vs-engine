@@ -8,7 +8,7 @@ const path = require('path');
 const os = require('os');
 const cp = require('child_process');
 const { dirs } = require('./dirs');
-const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+const pnpm = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
 const root = path.dirname(path.dirname(__dirname));
 
 function log(dir, message) {
@@ -37,7 +37,7 @@ function run(command, args, opts) {
  * @param {string} dir
  * @param {*} [opts]
  */
-function npmInstall(dir, opts) {
+function pnpmInstall(dir, opts) {
 	opts = {
 		env: { ...process.env },
 		...(opts ?? {}),
@@ -60,7 +60,7 @@ function npmInstall(dir, opts) {
 		run('sudo', ['chown', '-R', `${userinfo.uid}:${userinfo.gid}`, `${path.resolve(root, dir)}`], opts);
 	} else {
 		log(dir, 'Installing dependencies...');
-		run(npm, command.split(' '), opts);
+		run(pnpm, command.split(' '), opts);
 	}
 	removeParcelWatcherPrebuild(dir);
 }
@@ -134,7 +134,7 @@ for (let dir of dirs) {
 		if (process.env['LDFLAGS']) { opts.env['LDFLAGS'] = ''; }
 
 		setNpmrcConfig('build', opts.env);
-		npmInstall('build', opts);
+		pnpmInstall('build', opts);
 		continue;
 	}
 
@@ -163,12 +163,9 @@ for (let dir of dirs) {
 		if (process.env['VSCODE_REMOTE_NODE_GYP']) { opts.env['npm_config_node_gyp'] = process.env['VSCODE_REMOTE_NODE_GYP']; }
 
 		setNpmrcConfig('remote', opts.env);
-		npmInstall(dir, opts);
+		pnpmInstall(dir, opts);
 		continue;
 	}
 
-	npmInstall(dir, opts);
+	pnpmInstall(dir, opts);
 }
-
-cp.execSync('git config pull.rebase merges');
-cp.execSync('git config blame.ignoreRevsFile .git-blame-ignore-revs');

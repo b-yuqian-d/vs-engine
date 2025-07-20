@@ -29,12 +29,6 @@ function code() {
 		node build/lib/preLaunch.js
 	fi
 
-	# Manage built-in extensions
-	if [[ "$1" == "--builtin" ]]; then
-		exec "$CODE" build/builtin
-		return
-	fi
-
 	# Configuration
 	export NODE_ENV=development
 	export VSCODE_DEV=1

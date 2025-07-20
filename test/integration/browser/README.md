@@ -5,8 +5,8 @@
 Make sure to run the following commands to compile and install dependencies:
 
     cd test/integration/browser
-    npm i
-    npm run compile
+    pnpm install
+    pnpm run compile
 
 ## Run (inside Electron)
 
@@ -22,7 +22,7 @@ All integration tests run in a browser instance as specified by the command line
 
 Add the `--debug` flag to see a browser window with the tests running.
 
-**Note**: you can enable verbose logging of playwright library by setting a `DEBUG` environment variable before running the tests (<https://playwright.dev/docs/debug#verbose-api-logs>)
+**Note**: you can enable verbose logging of the Playwright library by setting a `DEBUG` environment variable before running the tests (<https://playwright.dev/docs/debug#verbose-api-logs>)
 
 ## Debug
 

@@ -163,9 +163,8 @@ export abstract class AbstractExtensionResourceLoaderService extends Disposable 
 	}
 
 	protected _isWebExtensionResourceEndPoint(uri: URI): boolean {
-		const uriPath = uri.path, serverRootPath = RemoteAuthorities.getServerRootPath();
-		// test if the path starts with the server root path followed by the web extension resource end point segment
-		return uriPath.startsWith(serverRootPath) && uriPath.startsWith(WEB_EXTENSION_RESOURCE_END_POINT_SEGMENT, serverRootPath.length);
+		const uriPath = uri.path;
+		// test if the path starts with the web extension resource end point segment
+		return uriPath.startsWith(WEB_EXTENSION_RESOURCE_END_POINT_SEGMENT);
 	}
-
 }
