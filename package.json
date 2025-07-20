@@ -10,7 +10,7 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "test-browser": "pnpx playwright install && node test/unit/browser/index.js",
+    "test-browser": "pnpm run playwright-install && node test/unit/browser/index.js",
     "test-browser-no-install": "node test/unit/browser/index.js",
     "test-node": "mocha test/unit/node/index.js --delay --ui=tdd --timeout=5000 --exit",
     "preinstall": "node build/npm/preinstall.js",
