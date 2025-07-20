@@ -58,7 +58,8 @@ jobs:
         with:
           node-version-file: '.nvmrc'
           cache: pnpm
-      - run: |
+      - shell: bash
+        run: |
           pnpm install
       - name: build
         run: |
