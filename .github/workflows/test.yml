@@ -26,7 +26,7 @@ jobs:
           ./scripts/test.sh
       - name: test-browser
         run: |
-          pnpm run test-browser-no-install
+          pnpm run test-browser
       - name: test-node
         run: |
           pnpm run test-node
@@ -48,7 +48,7 @@ jobs:
         run: ./scripts/test.sh
       - name: test-browser
         run: |
-          pnpm run test-browser-no-install
+          pnpm run test-browser
       - name: test-node
         run: |
           pnpm run test-node
@@ -71,7 +71,7 @@ jobs:
         run: ./scripts/test.bat
       - name: test-browser
         run: |
-          pnpm run test-browser-no-install
+          pnpm run test-browser
       - name: test-node
         run: |
           pnpm run test-node
