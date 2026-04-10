@@ -19,136 +19,135 @@ import * as perf from './vs/base/common/performance.js';
 import { INLSConfiguration } from './vs/nls.js';
 import { IServerAPI } from './vs/server/node/remoteExtensionHostAgentServer.js';
 
-perf.mark('code/server/start');
-(globalThis as { vscodeServerStartTime?: number }).vscodeServerStartTime = performance.now();
+async function start() {
+	perf.mark('code/server/start');
+	(globalThis as { vscodeServerStartTime?: number }).vscodeServerStartTime = performance.now();
 
-// Do a quick parse to determine if a server or the cli needs to be started
-const parsedArgs = minimist(process.argv.slice(2), {
-	boolean: ['start-server', 'list-extensions', 'print-ip-address', 'help', 'version', 'accept-server-license-terms', 'update-extensions'],
-	string: ['install-extension', 'install-builtin-extension', 'uninstall-extension', 'locate-extension', 'socket-path', 'host', 'port', 'compatibility', 'agent-host-port', 'agent-host-path'],
-	alias: { help: 'h', version: 'v' }
-});
-['host', 'port', 'accept-server-license-terms'].forEach(e => {
-	if (!parsedArgs[e]) {
-		const envValue = process.env[`VSCODE_SERVER_${e.toUpperCase().replace('-', '_')}`];
-		if (envValue) {
-			parsedArgs[e] = envValue;
-		}
-	}
-});
-
-const extensionLookupArgs = ['list-extensions', 'locate-extension'];
-const extensionInstallArgs = ['install-extension', 'install-builtin-extension', 'uninstall-extension', 'update-extensions'];
-
-const shouldSpawnCli = parsedArgs.help || parsedArgs.version || extensionLookupArgs.some(a => !!parsedArgs[a]) || (extensionInstallArgs.some(a => !!parsedArgs[a]) && !parsedArgs['start-server']);
-
-const nlsConfiguration = await resolveNLSConfiguration({ userLocale: 'en', osLocale: 'en', commit: product.commit, userDataPath: '', nlsMetadataPath: import.meta.dirname });
-
-if (shouldSpawnCli) {
-	loadCode(nlsConfiguration).then((mod) => {
-		mod.spawnCli();
+	// Do a quick parse to determine if a server or the cli needs to be started
+	const parsedArgs = minimist(process.argv.slice(2), {
+		boolean: ['start-server', 'list-extensions', 'print-ip-address', 'help', 'version', 'accept-server-license-terms', 'update-extensions'],
+		string: ['install-extension', 'install-builtin-extension', 'uninstall-extension', 'locate-extension', 'socket-path', 'host', 'port', 'compatibility', 'agent-host-port', 'agent-host-path'],
+		alias: { help: 'h', version: 'v' }
 	});
-} else {
-	let _remoteExtensionHostAgentServer: IServerAPI | null = null;
-	let _remoteExtensionHostAgentServerPromise: Promise<IServerAPI> | null = null;
-	const getRemoteExtensionHostAgentServer = () => {
-		if (!_remoteExtensionHostAgentServerPromise) {
-			_remoteExtensionHostAgentServerPromise = loadCode(nlsConfiguration).then(async (mod) => {
-				const server = await mod.createServer(address);
-				_remoteExtensionHostAgentServer = server;
-				return server;
-			});
-		}
-		return _remoteExtensionHostAgentServerPromise;
-	};
-
-	if (Array.isArray(product.serverLicense) && product.serverLicense.length) {
-		console.log(product.serverLicense.join('\n'));
-		if (product.serverLicensePrompt && parsedArgs['accept-server-license-terms'] !== true) {
-			if (hasStdinWithoutTty()) {
-				console.log('To accept the license terms, start the server with --accept-server-license-terms');
-				process.exit(1);
+	['host', 'port', 'accept-server-license-terms'].forEach(e => {
+		if (!parsedArgs[e]) {
+			const envValue = process.env[`VSCODE_SERVER_${e.toUpperCase().replace('-', '_')}`];
+			if (envValue) {
+				parsedArgs[e] = envValue;
 			}
-			try {
-				const accept = await prompt(product.serverLicensePrompt);
-				if (!accept) {
+		}
+	});
+
+	const extensionLookupArgs = ['list-extensions', 'locate-extension'];
+	const extensionInstallArgs = ['install-extension', 'install-builtin-extension', 'uninstall-extension', 'update-extensions'];
+
+	const shouldSpawnCli = parsedArgs.help || parsedArgs.version || extensionLookupArgs.some(a => !!parsedArgs[a]) || (extensionInstallArgs.some(a => !!parsedArgs[a]) && !parsedArgs['start-server']);
+
+	const nlsConfiguration = await resolveNLSConfiguration({ userLocale: 'en', osLocale: 'en', commit: product.commit, userDataPath: '', nlsMetadataPath: import.meta.dirname });
+
+	if (shouldSpawnCli) {
+		const mod = await loadCode(nlsConfiguration);
+		const args = mod.parseServerArgs();
+		await mod.spawnCli(args);
+	} else {
+		let _remoteExtensionHostAgentServer: IServerAPI | null = null;
+		const getRemoteExtensionHostAgentServer = async () => {
+			if (!_remoteExtensionHostAgentServer) {
+				const mod = await loadCode(nlsConfiguration);
+				const args = mod.parseServerArgs();
+				_remoteExtensionHostAgentServer = await mod.createServer(address, args);
+			}
+			return _remoteExtensionHostAgentServer;
+		};
+
+		if (Array.isArray(product.serverLicense) && product.serverLicense.length) {
+			console.log(product.serverLicense.join('\n'));
+			if (product.serverLicensePrompt && parsedArgs['accept-server-license-terms'] !== true) {
+				if (hasStdinWithoutTty()) {
+					console.log('To accept the license terms, start the server with --accept-server-license-terms');
 					process.exit(1);
 				}
-			} catch (e) {
-				console.log(e);
-				process.exit(1);
+				try {
+					const accept = await prompt(product.serverLicensePrompt);
+					if (!accept) {
+						process.exit(1);
+					}
+				} catch (e) {
+					console.log(e);
+					process.exit(1);
+				}
 			}
 		}
-	}
 
-	let firstRequest = true;
-	let firstWebSocket = true;
+		let firstRequest = true;
+		let firstWebSocket = true;
 
-	let address: string | AddressInfo | null = null;
-	const server = http.createServer(async (req, res) => {
-		if (firstRequest) {
-			firstRequest = false;
-			perf.mark('code/server/firstRequest');
-		}
-		const remoteExtensionHostAgentServer = await getRemoteExtensionHostAgentServer();
-		return remoteExtensionHostAgentServer.handleRequest(req, res);
-	});
-	server.on('upgrade', async (req, socket) => {
-		if (firstWebSocket) {
-			firstWebSocket = false;
-			perf.mark('code/server/firstWebSocket');
-		}
-		const remoteExtensionHostAgentServer = await getRemoteExtensionHostAgentServer();
-		// @ts-expect-error
-		return remoteExtensionHostAgentServer.handleUpgrade(req, socket);
-	});
-	server.on('error', async (err) => {
-		const remoteExtensionHostAgentServer = await getRemoteExtensionHostAgentServer();
-		return remoteExtensionHostAgentServer.handleServerError(err);
-	});
+		let address: string | AddressInfo | null = null;
+		const server = http.createServer(async (req, res) => {
+			if (firstRequest) {
+				firstRequest = false;
+				perf.mark('code/server/firstRequest');
+			}
+			const remoteExtensionHostAgentServer = await getRemoteExtensionHostAgentServer();
+			return remoteExtensionHostAgentServer.handleRequest(req, res);
+		});
+		server.on('upgrade', async (req, socket) => {
+			if (firstWebSocket) {
+				firstWebSocket = false;
+				perf.mark('code/server/firstWebSocket');
+			}
+			const remoteExtensionHostAgentServer = await getRemoteExtensionHostAgentServer();
+			// @ts-expect-error
+			return remoteExtensionHostAgentServer.handleUpgrade(req, socket);
+		});
+		server.on('error', async (err) => {
+			const remoteExtensionHostAgentServer = await getRemoteExtensionHostAgentServer();
+			return remoteExtensionHostAgentServer.handleServerError(err);
+		});
 
-	const host = sanitizeStringArg(parsedArgs['host']) || (parsedArgs['compatibility'] !== '1.63' ? 'localhost' : undefined);
-	const nodeListenOptions = (
-		parsedArgs['socket-path']
-			? { path: sanitizeStringArg(parsedArgs['socket-path']) }
-			: { host, port: await parsePort(host, sanitizeStringArg(parsedArgs['port'])) }
-	);
-	server.listen(nodeListenOptions, async () => {
-		let output = Array.isArray(product.serverGreeting) && product.serverGreeting.length ? `\n\n${product.serverGreeting.join('\n')}\n\n` : ``;
+		const host = sanitizeStringArg(parsedArgs['host']) || (parsedArgs['compatibility'] !== '1.63' ? 'localhost' : undefined);
+		const nodeListenOptions = (
+			parsedArgs['socket-path']
+				? { path: sanitizeStringArg(parsedArgs['socket-path']) }
+				: { host, port: await parsePort(host, sanitizeStringArg(parsedArgs['port'])) }
+		);
+		server.listen(nodeListenOptions, async () => {
+			let output = Array.isArray(product.serverGreeting) && product.serverGreeting.length ? `\n\n${product.serverGreeting.join('\n')}\n\n` : ``;
 
-		if (typeof nodeListenOptions.port === 'number' && parsedArgs['print-ip-address']) {
-			const ifaces = os.networkInterfaces();
-			Object.keys(ifaces).forEach(function (ifname) {
-				ifaces[ifname]?.forEach(function (iface) {
-					if (!iface.internal && iface.family === 'IPv4') {
-						output += `IP Address: ${iface.address}\n`;
-					}
+			if (typeof nodeListenOptions.port === 'number' && parsedArgs['print-ip-address']) {
+				const ifaces = os.networkInterfaces();
+				Object.keys(ifaces).forEach(function (ifname) {
+					ifaces[ifname]?.forEach(function (iface) {
+						if (!iface.internal && iface.family === 'IPv4') {
+							output += `IP Address: ${iface.address}\n`;
+						}
+					});
 				});
-			});
-		}
+			}
 
-		address = server.address();
-		if (address === null) {
-			throw new Error('Unexpected server address');
-		}
+			address = server.address();
+			if (address === null) {
+				throw new Error('Unexpected server address');
+			}
 
-		output += `Server bound to ${typeof address === 'string' ? address : `${address.address}:${address.port} (${address.family})`}\n`;
-		// Do not change this line. VS Code looks for this in the output.
-		output += `Extension host agent listening on ${typeof address === 'string' ? address : address.port}\n`;
-		console.log(output);
+			output += `Server bound to ${typeof address === 'string' ? address : `${address.address}:${address.port} (${address.family})`}\n`;
+			// Do not change this line. VS Code looks for this in the output.
+			output += `Extension host agent listening on ${typeof address === 'string' ? address : address.port}\n`;
+			console.log(output);
 
-		perf.mark('code/server/started');
-		(globalThis as { vscodeServerListenTime?: number }).vscodeServerListenTime = performance.now();
+			perf.mark('code/server/started');
+			(globalThis as { vscodeServerListenTime?: number }).vscodeServerListenTime = performance.now();
 
-		await getRemoteExtensionHostAgentServer();
-	});
+			await getRemoteExtensionHostAgentServer();
+		});
 
-	process.on('exit', () => {
-		server.close();
-		if (_remoteExtensionHostAgentServer) {
-			_remoteExtensionHostAgentServer.dispose();
-		}
-	});
+		process.on('exit', () => {
+			server.close();
+			if (_remoteExtensionHostAgentServer) {
+				_remoteExtensionHostAgentServer.dispose();
+			}
+		});
+	}
 }
 
 function sanitizeStringArg(val: unknown): string | undefined {
@@ -282,4 +281,20 @@ function prompt(question: string): Promise<boolean> {
 			}
 		});
 	});
+}
+
+async function loadCodeWithNls() {
+	const nlsConfiguration = await resolveNLSConfiguration({
+		userLocale: 'en',
+		osLocale: 'en',
+		commit: product.commit,
+		userDataPath: '',
+		nlsMetadataPath: import.meta.dirname
+	});
+	return loadCode(nlsConfiguration);
+}
+
+// start server
+if (!process.env.CODE_SERVER_PARENT_PID) {
+	await start();
 }
