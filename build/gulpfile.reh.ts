@@ -16,7 +16,7 @@ import rename from 'gulp-rename';
 import replace from 'gulp-replace';
 import filter from 'gulp-filter';
 import { getProductionDependencies } from './lib/dependencies.ts';
-import { readISODate } from './lib/date.ts';
+import { readISODate, writeISODate } from './lib/date.ts';
 import vfs from 'vinyl-fs';
 import packageJson from '../package.json' with { type: 'json' };
 import flatmap from 'gulp-flatmap';
@@ -34,8 +34,9 @@ import * as cp from 'child_process';
 import log from 'fancy-log';
 import buildfile from './buildfile.ts';
 import { fetchUrls, fetchGithub } from './lib/fetch.ts';
-import { getCopilotExcludeFilter, copyCopilotNativeDeps } from './lib/copilot.ts';
 import jsonEditor from 'gulp-json-editor';
+import { useEsbuildTranspile } from './buildConfig.ts';
+import { copyCodiconsTask } from './lib/compilation.ts';
 
 
 const rcedit = promisify(rceditCallback);
@@ -257,6 +258,43 @@ function nodejs(platform: string, arch: string): NodeJS.ReadWriteStream | undefi
 	}
 }
 
+
+const sourceMappingURLBase = `https://main.vscode-cdn.net/sourcemaps/${commit}`;
+const isCI = !!process.env['CI'] || !!process.env['BUILD_ARTIFACTSTAGINGDIRECTORY'] || !!process.env['GITHUB_WORKSPACE'];
+const useCdnSourceMapsForPackagingTasks = isCI;
+
+function runEsbuildBundle(outDir: string, minify: boolean, nls: boolean, target: 'desktop' | 'server' | 'server-web' = 'desktop', sourceMapBaseUrl?: string): Promise<void> {
+	return new Promise((resolve, reject) => {
+		// const tsxPath = path.join(root, 'build/node_modules/tsx/dist/cli.mjs');
+		const scriptPath = path.join(REPO_ROOT, 'build/next/index.ts');
+		const args = [scriptPath, 'bundle', '--out', outDir, '--target', target];
+		if (minify) {
+			args.push('--minify');
+			args.push('--mangle-privates');
+		}
+		if (nls) {
+			args.push('--nls');
+		}
+		if (sourceMapBaseUrl) {
+			args.push('--source-map-base-url', sourceMapBaseUrl);
+		}
+
+		const proc = cp.spawn(process.execPath, args, {
+			cwd: REPO_ROOT,
+			stdio: 'inherit'
+		});
+
+		proc.on('error', reject);
+		proc.on('close', code => {
+			if (code === 0) {
+				resolve();
+			} else {
+				reject(new Error(`esbuild bundle failed with exit code ${code} (outDir: ${outDir}, minify: ${minify}, nls: ${nls}, target: ${target})`));
+			}
+		});
+	});
+}
+
 function packageTask(type: string, platform: string, arch: string, sourceFolderName: string, destinationFolderName: string) {
 	const destination = path.join(BUILD_ROOT, destinationFolderName);
 
@@ -344,7 +382,6 @@ function packageTask(type: string, platform: string, arch: string, sourceFolderN
 			.pipe(filter(['**', '!**/package-lock.json', '!**/*.{js,css}.map']))
 			.pipe(util.cleanNodeModules(path.join(import.meta.dirname, '.moduleignore')))
 			.pipe(util.cleanNodeModules(path.join(import.meta.dirname, `.moduleignore.${process.platform}`)))
-			.pipe(filter(getCopilotExcludeFilter(platform, arch)))
 			.pipe(jsFilter)
 			.pipe(util.stripSourceMappingURL())
 			.pipe(jsFilter.restore);
@@ -463,13 +500,6 @@ function patchWin32DependenciesTask(destinationFolderName: string) {
 	};
 }
 
-function copyCopilotNativeDepsTaskREH(platform: string, arch: string, destinationFolderName: string) {
-	return async () => {
-		const nodeModulesDir = path.join(BUILD_ROOT, destinationFolderName, 'node_modules');
-		copyCopilotNativeDeps(platform, arch, nodeModulesDir);
-	};
-}
-
 /**
  * @param product The parsed product.json file contents
  */
@@ -505,6 +535,9 @@ function tweakProductForServerWeb(product: typeof import('../product.json')) {
 	));
 	gulp.task(minifyTask);
 
+	const esbuildBundleTask = task.define(`esbuild-vscode-${type}`, () => runEsbuildBundle(`out-vscode-${type}-min`, true, true, type === 'reh' ? 'server': 'server-web', `${sourceMappingURLBase}/core`));
+	gulp.task(esbuildBundleTask);
+
 	BUILD_TARGETS.forEach(buildTarget => {
 		const dashed = (str: string) => (str ? `-${str}` : ``);
 		const platform = buildTarget.platform;
@@ -519,7 +552,6 @@ function tweakProductForServerWeb(product: typeof import('../product.json')) {
 				gulp.task(`node-${platform}-${arch}`) as task.Task,
 				util.rimraf(path.join(BUILD_ROOT, destinationFolderName)),
 				packageTask(type, platform, arch, sourceFolderName, destinationFolderName),
-				copyCopilotNativeDepsTaskREH(platform, arch, destinationFolderName)
 			];
 
 			if (platform === 'win32') {
@@ -529,14 +561,38 @@ function tweakProductForServerWeb(product: typeof import('../product.json')) {
 			const serverTaskCI = task.define(`vscode-${type}${dashed(platform)}${dashed(arch)}${dashed(minified)}-ci`, task.series(...packageTasks));
 			gulp.task(serverTaskCI);
 
-			const serverTask = task.define(`vscode-${type}${dashed(platform)}${dashed(arch)}${dashed(minified)}`, task.series(
-				compileBuildWithManglingTask,
-				cleanExtensionsBuildTask,
-				compileNonNativeExtensionsBuildTask,
-				compileExtensionMediaBuildTask,
-				minified ? minifyTask : bundleTask,
-				serverTaskCI
-			));
+			let serverTask: task.Task;
+			if (useEsbuildTranspile) {
+				const esbuildBundleTask = task.define(
+					`esbuild-bundle-${type}${dashed(platform)}${dashed(arch)}${dashed(minified)}`,
+					() => runEsbuildBundle(
+						sourceFolderName,
+						!!minified,
+						true,
+						type === 'reh' ? 'server' : 'server-web',
+						minified && useCdnSourceMapsForPackagingTasks ? `${sourceMappingURLBase}/core` : undefined
+					)
+				);
+				serverTask = task.define(`vscode-${type}${dashed(platform)}${dashed(arch)}${dashed(minified)}`, task.series(
+					copyCodiconsTask,
+					cleanExtensionsBuildTask,
+					compileNonNativeExtensionsBuildTask,
+					compileExtensionMediaBuildTask,
+					writeISODate('out-build'),
+					esbuildBundleTask,
+					serverTaskCI
+				));
+			} else {
+				serverTask = task.define(`vscode-${type}${dashed(platform)}${dashed(arch)}${dashed(minified)}`, task.series(
+					compileBuildWithManglingTask,
+					cleanExtensionsBuildTask,
+					compileNonNativeExtensionsBuildTask,
+					compileExtensionMediaBuildTask,
+					minified ? minifyTask : bundleTask,
+					serverTaskCI
+				));
+			}
+
 			gulp.task(serverTask);
 		});
 	});

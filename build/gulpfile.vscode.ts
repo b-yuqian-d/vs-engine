@@ -31,13 +31,13 @@ import minimist from 'minimist';
 import { compileBuildWithoutManglingTask, compileBuildWithManglingTask } from './gulpfile.compile.ts';
 import { compileNonNativeExtensionsBuildTask, compileNativeExtensionsBuildTask, compileAllExtensionsBuildTask, compileExtensionMediaBuildTask, cleanExtensionsBuildTask } from './gulpfile.extensions.ts';
 import { copyCodiconsTask } from './lib/compilation.ts';
-import { getCopilotExcludeFilter, copyCopilotNativeDeps } from './lib/copilot.ts';
 import type { EmbeddedProductInfo } from './lib/embeddedType.ts';
 import { useEsbuildTranspile } from './buildConfig.ts';
 import { promisify } from 'util';
 import globCallback from 'glob';
 import rceditCallback from 'rcedit';
 import * as cp from 'child_process';
+import type { IExtensionDefinition } from './lib/builtInExtensions.ts';
 
 
 const glob = promisify(globCallback);
@@ -250,6 +250,9 @@ const minifyVSCodeTask = task.define('minify-vscode', task.series(
 ));
 gulp.task(minifyVSCodeTask);
 
+const esbuildVSCodeTask = task.define('esbuild-vscode-min', () => runEsbuildBundle('out-vscode-min', true, true, 'desktop', `${sourceMappingURLBase}/core`));
+gulp.task(esbuildVSCodeTask);
+
 gulp.task(task.define('core-ci-old', task.series(
 	gulp.task('compile-build-with-mangling') as task.Task,
 	task.parallel(
@@ -270,9 +273,9 @@ gulp.task(task.define('core-ci', task.series(
 	task.define('esbuild-out-build', () => runEsbuildTranspile('out-build', false)),
 	// Then bundle for shipping (bundles also write NLS files to out-build)
 	task.parallel(
-		task.define('esbuild-vscode-min', () => runEsbuildBundle('out-vscode-min', true, true, 'desktop', `${sourceMappingURLBase}/core`)),
-		task.define('esbuild-vscode-reh-min', () => runEsbuildBundle('out-vscode-reh-min', true, true, 'server', `${sourceMappingURLBase}/core`)),
-		task.define('esbuild-vscode-reh-web-min', () => runEsbuildBundle('out-vscode-reh-web-min', true, true, 'server-web', `${sourceMappingURLBase}/core`)),
+		gulp.task('esbuild-vscode-min') as task.Task,
+		gulp.task('esbuild-vscode-reh-min') as task.Task,
+		gulp.task('esbuild-vscode-reh-web-min') as task.Task,
 	)
 )));
 
@@ -345,12 +348,14 @@ function packageTask(platform: string, arch: string, sourceFolderName: string, d
 			.pipe(rename(function (path) { path.dirname = path.dirname!.replace(new RegExp('^' + out), 'out'); }))
 			.pipe(util.setExecutableBit(['**/*.sh']));
 
-		const platformSpecificBuiltInExtensionsExclusions = product.builtInExtensions.filter(ext => {
-			if (!(ext as { platforms?: string[] }).platforms) {
+
+		const builtInExtensions = product.builtInExtensions as IExtensionDefinition[];
+		const platformSpecificBuiltInExtensionsExclusions = builtInExtensions.filter(ext => {
+			if (!ext.platforms) {
 				return false;
 			}
 
-			const set = new Set((ext as { platforms?: string[] }).platforms);
+			const set = new Set(ext.platforms);
 			return !set.has(platform);
 		}).map(ext => `!.build/extensions/${ext.name}/**`);
 
@@ -439,7 +444,6 @@ function packageTask(platform: string, arch: string, sourceFolderName: string, d
 			.pipe(filter(depFilterPattern))
 			.pipe(util.cleanNodeModules(path.join(import.meta.dirname, '.moduleignore')))
 			.pipe(util.cleanNodeModules(path.join(import.meta.dirname, `.moduleignore.${process.platform}`)))
-			.pipe(filter(getCopilotExcludeFilter(platform, arch)))
 			.pipe(jsFilter)
 			.pipe(util.rewriteSourceMappingURL(sourceMappingURLBase))
 			.pipe(jsFilter.restore)
@@ -683,21 +687,6 @@ function patchWin32DependenciesTask(destinationFolderName: string) {
 	};
 }
 
-function copyCopilotNativeDepsTask(platform: string, arch: string, destinationFolderName: string) {
-	const outputDir = path.join(path.dirname(root), destinationFolderName);
-
-	return async () => {
-		// On Windows with win32VersionedUpdate, app resources live under a
-		// commit-hash prefix: {output}/{commitHash}/resources/app/
-		const versionedResourcesFolder = util.getVersionedResourcesFolder(platform, commit!);
-		const appBase = platform === 'darwin'
-			? path.join(outputDir, `${product.nameLong}.app`, 'Contents', 'Resources', 'app')
-			: path.join(outputDir, versionedResourcesFolder, 'resources', 'app');
-
-		copyCopilotNativeDeps(platform, arch, path.join(appBase, 'node_modules'));
-	};
-}
-
 const buildRoot = path.dirname(root);
 
 const BUILD_TARGETS = [
@@ -723,7 +712,6 @@ BUILD_TARGETS.forEach(buildTarget => {
 			compileNativeExtensionsBuildTask,
 			util.rimraf(path.join(buildRoot, destinationFolderName)),
 			packageTask(platform, arch, sourceFolderName, destinationFolderName, opts),
-			copyCopilotNativeDepsTask(platform, arch, destinationFolderName)
 		];
 
 		if (platform === 'win32') {

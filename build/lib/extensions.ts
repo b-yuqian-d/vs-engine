@@ -302,10 +302,102 @@ const nativeExtensions = [
 ];
 
 const excludedExtensions = [
+	'bat',
+	'clojure',
+	'coffeescript',
+	'configuration-editing',
+	'copilot',
+	'cpp',
+	'csharp',
+	'css',
+	'css-language-features',
+	'dart',
+	'debug-auto-launch',
+	'debug-server-ready',
+	'diff',
+	'docker',
+	'dotenv',
+	'emmet',
+	'extension-editing',
+	'fsharp',
+	'git',
+	'git-base',
+	'github',
+	'github-authentication',
+	'go',
+	'groovy',
+	'grunt',
+	'gulp',
+	'handlebars',
+	'hlsl',
+	'html',
+	'html-language-features',
+	'ini',
+	'ipynb',
+	'jake',
+	'java',
+	'javascript',
+	'json',
+	'json-language-features',
+	'julia',
+	'latex',
+	'less',
+	'log',
+	'lua',
+	'make',
+	'markdown-basics',
+	'markdown-language-features',
+	'markdown-math',
+	'media-preview',
+	'merge-conflict',
+	'mermaid-chat-features',
+	'microsoft-authentication',
+	'notebook-renderers',
+	'npm',
+	'objective-c',
+	'perl',
+	'php',
+	'php-language-features',
+	'powershell',
+	'prompt-basics',
+	'pug',
+	'python',
+	'r',
+	'razor',
+	'references-view',
+	'restructuredtext',
+	'ruby',
+	'rust',
+	'scss',
+	'search-result',
+	'shaderlab',
+	'shellscript',
+	'simple-browser',
+	'sql',
+	'swift',
+	'terminal-suggest',
+	'theme-abyss',
+	'theme-defaults',
+	'theme-kimbie-dark',
+	'theme-monokai',
+	'theme-monokai-dimmed',
+	'theme-quietlight',
+	'theme-red',
+	'theme-seti',
+	'theme-solarized-dark',
+	'theme-solarized-light',
+	'theme-tomorrow-night-blue',
+	'tunnel-forwarding',
+	'types',
+	'typescript-basics',
+	'typescript-language-features',
+	'vb',
 	'vscode-api-tests',
-	'vscode-colorize-tests',
 	'vscode-colorize-perf-tests',
+	'vscode-colorize-tests',
 	'vscode-test-resolver',
+	'xml',
+	'yaml',
 	'ms-vscode.node-debug',
 	'ms-vscode.node-debug2',
 ];
@@ -431,11 +523,15 @@ function doPackageLocalExtensionsStream(forWeb: boolean, disableMangle: boolean,
 		const productionDependencies = getProductionDependencies('extensions/');
 		const dependenciesSrc = productionDependencies.map(d => path.relative(root, d)).map(d => [`${d}/**`, `!${d}/**/{test,tests}/**`]).flat();
 
-		result = es.merge(
-			localExtensionsStream,
-			gulp.src(dependenciesSrc, { base: '.' })
-				.pipe(util2.cleanNodeModules(path.join(root, 'build', '.moduleignore')))
-				.pipe(util2.cleanNodeModules(path.join(root, 'build', `.moduleignore.${process.platform}`))));
+		if (dependenciesSrc.length > 0) {
+			result = es.merge(
+				localExtensionsStream,
+				gulp.src(dependenciesSrc, { base: '.' })
+					.pipe(util2.cleanNodeModules(path.join(root, 'build', '.moduleignore')))
+					.pipe(util2.cleanNodeModules(path.join(root, 'build', `.moduleignore.${process.platform}`))));
+		} else {
+			result = localExtensionsStream;
+		}
 	}
 
 	return (
@@ -579,15 +675,7 @@ export async function esbuildExtensions(taskName: string, isWatch: boolean, scri
 
 
 // Additional projects to run esbuild on. These typically build code for webviews
-const esbuildMediaScripts = [
-	'ipynb/esbuild.notebook.mts',
-	'markdown-language-features/esbuild.notebook.mts',
-	'markdown-language-features/esbuild.webview.mts',
-	'markdown-math/esbuild.notebook.mts',
-	'mermaid-chat-features/esbuild.webview.mts',
-	'notebook-renderers/esbuild.notebook.mts',
-	'simple-browser/esbuild.webview.mts',
-];
+const esbuildMediaScripts : string[] = [];
 
 export function buildExtensionMedia(isWatch: boolean, outputRoot?: string): Promise<void> {
 	return esbuildExtensions('esbuilding extension media', isWatch, esbuildMediaScripts.map(p => ({
