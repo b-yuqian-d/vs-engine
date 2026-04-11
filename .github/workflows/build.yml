@@ -25,15 +25,7 @@ jobs:
           ELECTRON_SKIP_BINARY_DOWNLOAD: 1
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
 
-      - run: npm run gulp cleanExtensionsBuild compileNonNativeExtensionsBuild compileExtensionMediaBuild
-
-      - run: npm run gulp writeISODate
-
-      - run: npx tsx build/next/index.ts bundle --minify --nls --target server-web --out out-vscode-reh-web-min
-
-      - run: npm run gulp node-linux-x64
-
-      - run: npm run gulp vscode-reh-web-linux-x64-min-ci
+      - run: npm run gulp vscode-reh-web-linux-x64-min
 
       - run: tar -czf vscode-reh-web-linux-x64.tar.gz -C .. vscode-reh-web-linux-x64
 
