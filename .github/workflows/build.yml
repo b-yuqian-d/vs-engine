@@ -1,0 +1,47 @@
+name: build
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+
+jobs:
+  build-reh-web:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y build-essential g++ libx11-dev libxkbfile-dev libsecret-1-dev libkrb5-dev python-is-python3
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+
+      - run: npm ci
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
+
+      - run: npm run gulp cleanExtensionsBuild compileNonNativeExtensionsBuild compileExtensionMediaBuild
+
+      - run: npm run gulp writeISODate
+
+      - run: npx tsx build/next/index.ts bundle --minify --nls --target server-web --out out-vscode-reh-web-min
+
+      - run: npm run gulp node-linux-x64
+
+      - run: npm run gulp vscode-reh-web-linux-x64-min-ci
+
+      - run: tar -czf vscode-reh-web-linux-x64.tar.gz -C .. vscode-reh-web-linux-x64
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vscode-reh-web-linux-x64
+          path: vscode-reh-web-linux-x64.tar.gz
+
+      - uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/v')
+        with:
+          files: vscode-reh-web-linux-x64.tar.gz
