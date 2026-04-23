@@ -73,7 +73,7 @@ export async function spawnCli(args: ServerParsedArgs) {
 /**
  * invoked by server-main.js
  */
-export async function createServer(address: string | net.AddressInfo | null, args: ServerParsedArgs): IServerAPI {
+export async function createServer(address: string | net.AddressInfo | null, args: ServerParsedArgs): Promise<IServerAPI> {
 	const dataFolder = createDataFolder(args);
 	return await doCreateServer(address, args, dataFolder);
 }

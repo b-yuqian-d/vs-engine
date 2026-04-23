@@ -8,7 +8,6 @@ import * as path from 'node:path';
 import * as http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import * as os from 'node:os';
-import * as readline from 'node:readline';
 import { performance } from 'node:perf_hooks';
 import minimist from 'minimist';
 import { devInjectNodeModuleLookupPath, removeGlobalNodeJsModuleLookupPaths } from './bootstrap-node.js';
@@ -60,25 +59,6 @@ async function start() {
 			return _remoteExtensionHostAgentServer;
 		};
 
-		if (Array.isArray(product.serverLicense) && product.serverLicense.length) {
-			console.log(product.serverLicense.join('\n'));
-			if (product.serverLicensePrompt && parsedArgs['accept-server-license-terms'] !== true) {
-				if (hasStdinWithoutTty()) {
-					console.log('To accept the license terms, start the server with --accept-server-license-terms');
-					process.exit(1);
-				}
-				try {
-					const accept = await prompt(product.serverLicensePrompt);
-					if (!accept) {
-						process.exit(1);
-					}
-				} catch (e) {
-					console.log(e);
-					process.exit(1);
-				}
-			}
-		}
-
 		let firstRequest = true;
 		let firstWebSocket = true;
 
@@ -112,28 +92,12 @@ async function start() {
 				: { host, port: await parsePort(host, sanitizeStringArg(parsedArgs['port'])) }
 		);
 		server.listen(nodeListenOptions, async () => {
-			let output = Array.isArray(product.serverGreeting) && product.serverGreeting.length ? `\n\n${product.serverGreeting.join('\n')}\n\n` : ``;
-
-			if (typeof nodeListenOptions.port === 'number' && parsedArgs['print-ip-address']) {
-				const ifaces = os.networkInterfaces();
-				Object.keys(ifaces).forEach(function (ifname) {
-					ifaces[ifname]?.forEach(function (iface) {
-						if (!iface.internal && iface.family === 'IPv4') {
-							output += `IP Address: ${iface.address}\n`;
-						}
-					});
-				});
-			}
-
 			address = server.address();
 			if (address === null) {
 				throw new Error('Unexpected server address');
 			}
-
-			output += `Server bound to ${typeof address === 'string' ? address : `${address.address}:${address.port} (${address.family})`}\n`;
-			// Do not change this line. VS Code looks for this in the output.
-			output += `Extension host agent listening on ${typeof address === 'string' ? address : address.port}\n`;
-			console.log(output);
+			const printIpAddress = typeof nodeListenOptions.port === 'number' && parsedArgs['print-ip-address'];
+			generateServerGreeting(address, printIpAddress);
 
 			perf.mark('code/server/started');
 			(globalThis as { vscodeServerListenTime?: number }).vscodeServerListenTime = performance.now();
@@ -150,6 +114,24 @@ async function start() {
 	}
 }
 
+function generateServerGreeting(address: AddressInfo | string, printIpAddress: boolean) {
+	let output = Array.isArray(product.serverGreeting) && product.serverGreeting.length ? `\n\n${product.serverGreeting.join('\n')}\n\n` : ``;
+	if (printIpAddress) {
+		const interfaces = os.networkInterfaces();
+		const interfaceInfoList = Object.values(interfaces).filter(info => info !== undefined);
+		const ipAddressList = interfaceInfoList.flat().filter(info => !info.internal && info.family === 'IPv4').map(info => info.address);
+		output += ipAddressList.map(item => `IP Address: ${item}`).join('\n') + '\n';
+	}
+	if (typeof address === 'string') {
+		output += `Server bound to ${address}\n`;
+	} else {
+		output += `Server bound to ${address.address}:${address.port} (${address.family})\n`;
+	}
+	// Do not change this line. VS Code looks for this in the output.
+	output += `Extension host agent listening on ${typeof address === 'string' ? address : address.port}\n`;
+	console.log(output);
+}
+
 function sanitizeStringArg(val: unknown): string | undefined {
 	if (Array.isArray(val)) { // if an argument is passed multiple times, minimist creates an array
 		val = val.pop(); // take the last item
@@ -160,7 +142,7 @@ function sanitizeStringArg(val: unknown): string | undefined {
 /**
  * If `--port` is specified and describes a single port, connect to that port.
  *
- * If `--port`describes a port range
+ * If `--port` describes a port range
  * then find a free port in that range. Throw error if no
  * free port available in range.
  *
@@ -168,10 +150,11 @@ function sanitizeStringArg(val: unknown): string | undefined {
  */
 async function parsePort(host: string | undefined, strPort: string | undefined): Promise<number> {
 	if (strPort) {
-		let range: { start: number; end: number } | undefined;
 		if (strPort.match(/^\d+$/)) {
 			return parseInt(strPort, 10);
-		} else if (range = parseRange(strPort)) {
+		}
+		const range = parseRange(strPort);
+		if (range) {
 			const port = await findFreePort(host, range.start, range.end);
 			if (port !== undefined) {
 				return port;
@@ -253,48 +236,5 @@ async function loadCode(nlsConfiguration: INLSConfiguration) {
 	return import('./vs/server/node/server.main.js');
 }
 
-function hasStdinWithoutTty(): boolean {
-	try {
-		return !process.stdin.isTTY; // Via https://twitter.com/MylesBorins/status/782009479382626304
-	} catch (error) {
-		// Windows workaround for https://github.com/nodejs/node/issues/11656
-	}
-	return false;
-}
-
-function prompt(question: string): Promise<boolean> {
-	const rl = readline.createInterface({
-		input: process.stdin,
-		output: process.stdout
-	});
-	return new Promise((resolve, reject) => {
-		rl.question(question + ' ', async function (data) {
-			rl.close();
-			const str = data.toString().trim().toLowerCase();
-			if (str === '' || str === 'y' || str === 'yes') {
-				resolve(true);
-			} else if (str === 'n' || str === 'no') {
-				resolve(false);
-			} else {
-				process.stdout.write('\nInvalid Response. Answer either yes (y, yes) or no (n, no)\n');
-				resolve(await prompt(question));
-			}
-		});
-	});
-}
-
-async function loadCodeWithNls() {
-	const nlsConfiguration = await resolveNLSConfiguration({
-		userLocale: 'en',
-		osLocale: 'en',
-		commit: product.commit,
-		userDataPath: '',
-		nlsMetadataPath: import.meta.dirname
-	});
-	return loadCode(nlsConfiguration);
-}
-
 // start server
-if (!process.env.CODE_SERVER_PARENT_PID) {
-	await start();
-}
+await start();
