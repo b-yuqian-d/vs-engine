@@ -28,7 +28,6 @@ import glob from 'glob';
 import { promisify } from 'util';
 import rceditCallback from 'rcedit';
 import { compileBuildWithManglingTask } from './gulpfile.compile.ts';
-import { cleanExtensionsBuildTask, compileNonNativeExtensionsBuildTask, compileNativeExtensionsBuildTask, compileExtensionMediaBuildTask } from './gulpfile.extensions.ts';
 import { vscodeWebResourceIncludes, createVSCodeWebFileContentMapper } from './gulpfile.vscode.web.ts';
 import * as cp from 'child_process';
 import log from 'fancy-log';
@@ -43,7 +42,7 @@ const rcedit = promisify(rceditCallback);
 
 const REPO_ROOT = path.dirname(import.meta.dirname);
 const commit = getVersion(REPO_ROOT);
-const BUILD_ROOT = path.dirname(REPO_ROOT);
+const BUILD_ROOT = REPO_ROOT;
 const REMOTE_FOLDER = path.join(REPO_ROOT, 'remote');
 
 // Targets
@@ -295,55 +294,13 @@ function runEsbuildBundle(outDir: string, minify: boolean, nls: boolean, target:
 	});
 }
 
-function packageTask(type: string, platform: string, arch: string, sourceFolderName: string, destinationFolderName: string) {
+function packageTask(target: string, platform: string, arch: string, sourceFolderName: string, destinationFolderName: string) {
 	const destination = path.join(BUILD_ROOT, destinationFolderName);
 
 	return () => {
 		const src = gulp.src(sourceFolderName + '/**', { base: '.' })
 			.pipe(rename(function (path) { path.dirname = path.dirname!.replace(new RegExp('^' + sourceFolderName), 'out'); }))
 			.pipe(util.setExecutableBit(['**/*.sh']))
-			.pipe(filter(['**', '!**/*.{js,css}.map']));
-
-		const workspaceExtensionPoints = ['debuggers', 'jsonValidation'];
-		const isUIExtension = (manifest: { extensionKind?: string; main?: string; contributes?: Record<string, unknown> }) => {
-			switch (manifest.extensionKind) {
-				case 'ui': return true;
-				case 'workspace': return false;
-				default: {
-					if (manifest.main) {
-						return false;
-					}
-					if (manifest.contributes && Object.keys(manifest.contributes).some(key => workspaceExtensionPoints.indexOf(key) !== -1)) {
-						return false;
-					}
-					// Default is UI Extension
-					return true;
-				}
-			}
-		};
-		const localWorkspaceExtensions = glob.sync('extensions/*/package.json')
-			.filter((extensionPath) => {
-				if (type === 'reh-web') {
-					return true; // web: ship all extensions for now
-				}
-
-				// Skip shipping UI extensions because the client side will have them anyways
-				// and they'd just increase the download without being used
-				const manifest = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, extensionPath)).toString());
-				return !isUIExtension(manifest);
-			}).map((extensionPath) => path.basename(path.dirname(extensionPath)))
-			.filter(name => name !== 'vscode-api-tests' && name !== 'vscode-test-resolver'); // Do not ship the test extensions
-		const builtInExtensions: Array<{ name: string; platforms?: string[]; clientOnly?: boolean }> = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, 'product.json'), 'utf8')).builtInExtensions;
-		const marketplaceExtensions = builtInExtensions
-			.filter(entry => !entry.platforms || new Set(entry.platforms).has(platform))
-			.filter(entry => !entry.clientOnly)
-			.map(entry => entry.name);
-		const extensionPaths = [...localWorkspaceExtensions, ...marketplaceExtensions]
-			.map(name => `.build/extensions/${name}/**`);
-
-		const extensions = gulp.src(extensionPaths, { base: '.build', dot: true });
-		const extensionsCommonDependencies = gulp.src('.build/extensions/node_modules/**', { base: '.build', dot: true });
-		const sources = es.merge(src, extensions, extensionsCommonDependencies)
 			.pipe(filter(['**', '!**/*.{js,css}.map'], { dot: true }));
 
 		let version = packageJson.version;
@@ -390,7 +347,7 @@ function packageTask(type: string, platform: string, arch: string, sourceFolderN
 		const node = gulp.src(`${nodePath}/**`, { base: nodePath, dot: true });
 
 		let web: NodeJS.ReadWriteStream[] = [];
-		if (type === 'reh-web') {
+		if (target === 'server-web') {
 			web = [
 				'resources/server/favicon.ico',
 				'resources/server/code-192.png',
@@ -403,7 +360,7 @@ function packageTask(type: string, platform: string, arch: string, sourceFolderN
 			packageJsonStream,
 			productJsonStream,
 			license,
-			sources,
+			src,
 			deps,
 			node,
 			...web
@@ -509,33 +466,33 @@ function tweakProductForServerWeb(product: typeof import('../product.json')) {
 	return result;
 }
 
-['reh', 'reh-web'].forEach(type => {
-	const bundleTask = task.define(`bundle-vscode-${type}`, task.series(
-		util.rimraf(`out-vscode-${type}`),
+['server', 'server-web'].forEach(target => {
+	const bundleTask = task.define(`bundle-vscode-${target}`, task.series(
+		util.rimraf(`out-vscode-${target}`),
 		optimize.bundleTask(
 			{
-				out: `out-vscode-${type}`,
+				out: `out-vscode-${target}`,
 				esm: {
 					src: 'out-build',
 					entryPoints: [
-						...(type === 'reh' ? serverEntryPoints : serverWithWebEntryPoints),
+						...(target === 'server' ? serverEntryPoints : serverWithWebEntryPoints),
 						...bootstrapEntryPoints
 					],
-					resources: type === 'reh' ? serverResources : serverWithWebResources,
-					fileContentMapper: createVSCodeWebFileContentMapper('.build/extensions', type === 'reh-web' ? tweakProductForServerWeb(product) : product)
+					resources: target === 'server' ? serverResources : serverWithWebResources,
+					fileContentMapper: createVSCodeWebFileContentMapper('.build/extensions', target === 'server-web' ? tweakProductForServerWeb(product) : product)
 				}
 			}
 		)
 	));
 
-	const minifyTask = task.define(`minify-vscode-${type}`, task.series(
+	const minifyTask = task.define(`minify-vscode-${target}`, task.series(
 		bundleTask,
-		util.rimraf(`out-vscode-${type}-min`),
-		optimize.minifyTask(`out-vscode-${type}`, `https://main.vscode-cdn.net/sourcemaps/${commit}/core`)
+		util.rimraf(`out-vscode-${target}-min`),
+		optimize.minifyTask(`out-vscode-${target}`, `https://main.vscode-cdn.net/sourcemaps/${commit}/core`)
 	));
 	gulp.task(minifyTask);
 
-	const esbuildBundleTask = task.define(`esbuild-vscode-${type}`, () => runEsbuildBundle(`out-vscode-${type}-min`, true, true, type === 'reh' ? 'server': 'server-web', `${sourceMappingURLBase}/core`));
+	const esbuildBundleTask = task.define(`esbuild-vscode-${target}`, () => runEsbuildBundle(`out-vscode-${target}-min`, true, true, target as 'server' | 'server-web', `${sourceMappingURLBase}/core`));
 	gulp.task(esbuildBundleTask);
 
 	BUILD_TARGETS.forEach(buildTarget => {
@@ -544,50 +501,43 @@ function tweakProductForServerWeb(product: typeof import('../product.json')) {
 		const arch = buildTarget.arch;
 
 		['', 'min'].forEach(minified => {
-			const sourceFolderName = `out-vscode-${type}${dashed(minified)}`;
-			const destinationFolderName = `vscode-${type}${dashed(platform)}${dashed(arch)}`;
+			const sourceFolderName = `out-vscode-${target}${dashed(minified)}`;
+			const destinationFolderName = `out-package-${target}${dashed(platform)}${dashed(arch)}`;
 
 			const packageTasks: task.Task[] = [
-				compileNativeExtensionsBuildTask,
 				gulp.task(`node-${platform}-${arch}`) as task.Task,
 				util.rimraf(path.join(BUILD_ROOT, destinationFolderName)),
-				packageTask(type, platform, arch, sourceFolderName, destinationFolderName),
+				packageTask(target, platform, arch, sourceFolderName, destinationFolderName),
 			];
 
 			if (platform === 'win32') {
 				packageTasks.push(patchWin32DependenciesTask(destinationFolderName));
 			}
 
-			const serverTaskCI = task.define(`vscode-${type}${dashed(platform)}${dashed(arch)}${dashed(minified)}-ci`, task.series(...packageTasks));
+			const serverTaskCI = task.define(`vscode-${target}${dashed(platform)}${dashed(arch)}${dashed(minified)}-ci`, task.series(...packageTasks));
 			gulp.task(serverTaskCI);
 
 			let serverTask: task.Task;
 			if (useEsbuildTranspile) {
 				const esbuildBundleTask = task.define(
-					`esbuild-bundle-${type}${dashed(platform)}${dashed(arch)}${dashed(minified)}`,
+					`esbuild-bundle-${target}${dashed(platform)}${dashed(arch)}${dashed(minified)}`,
 					() => runEsbuildBundle(
 						sourceFolderName,
 						!!minified,
 						true,
-						type === 'reh' ? 'server' : 'server-web',
+						target as 'server' | 'server-web',
 						minified && useCdnSourceMapsForPackagingTasks ? `${sourceMappingURLBase}/core` : undefined
 					)
 				);
-				serverTask = task.define(`vscode-${type}${dashed(platform)}${dashed(arch)}${dashed(minified)}`, task.series(
+				serverTask = task.define(`vscode-${target}${dashed(platform)}${dashed(arch)}${dashed(minified)}`, task.series(
 					copyCodiconsTask,
-					cleanExtensionsBuildTask,
-					compileNonNativeExtensionsBuildTask,
-					compileExtensionMediaBuildTask,
 					writeISODate('out-build'),
 					esbuildBundleTask,
 					serverTaskCI
 				));
 			} else {
-				serverTask = task.define(`vscode-${type}${dashed(platform)}${dashed(arch)}${dashed(minified)}`, task.series(
+				serverTask = task.define(`vscode-${target}${dashed(platform)}${dashed(arch)}${dashed(minified)}`, task.series(
 					compileBuildWithManglingTask,
-					cleanExtensionsBuildTask,
-					compileNonNativeExtensionsBuildTask,
-					compileExtensionMediaBuildTask,
 					minified ? minifyTask : bundleTask,
 					serverTaskCI
 				));
