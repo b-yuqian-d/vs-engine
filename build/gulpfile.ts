@@ -9,7 +9,6 @@ import glob from 'glob';
 import gulp from 'gulp';
 import { createRequire } from 'node:module';
 import { monacoTypecheckTask /* , monacoTypecheckWatchTask */ } from './gulpfile.editor.ts';
-import { compileExtensionMediaTask, compileExtensionsTask, watchExtensionsTask } from './gulpfile.extensions.ts';
 import * as compilation from './lib/compilation.ts';
 import * as task from './lib/task.ts';
 import * as util from './lib/util.ts';
@@ -42,10 +41,10 @@ const watchClientTask = useEsbuildTranspile
 gulp.task(watchClientTask);
 
 // All
-const _compileTask = task.define('compile', task.parallel(monacoTypecheckTask, compileClientTask, compileExtensionsTask, compileExtensionMediaTask));
+const _compileTask = task.define('compile', task.parallel(monacoTypecheckTask, compileClientTask));
 gulp.task(_compileTask);
 
-gulp.task(task.define('watch', task.parallel(/* monacoTypecheckWatchTask, */ watchClientTask, watchExtensionsTask)));
+gulp.task(task.define('watch', task.parallel(/* monacoTypecheckWatchTask, */ watchClientTask)));
 
 // Default
 gulp.task('default', _compileTask);
