@@ -307,11 +307,6 @@ export class ActivityBarCompositeBar extends PaneCompositeBar {
 			}
 		}
 
-		// Global Composite Bar
-		if (this.globalCompositeBar) {
-			actions.push(new Separator());
-			actions.push(...this.globalCompositeBar.getContextMenuActions());
-		}
 		actions.push(new Separator());
 		actions.push(...this.getActivityBarContextMenuActions());
 	}
