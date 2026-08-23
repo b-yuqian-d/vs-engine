@@ -50,7 +50,7 @@ async function start() {
 		const args = mod.parseServerArgs();
 		await mod.spawnCli(args);
 	} else {
-		installServerProcessExitDiagnostics();
+		installServerProcessExitDiagnostics(parsedArgs['logsPath']);
 		let _remoteExtensionHostAgentServer: IServerAPI | null = null;
 		const getRemoteExtensionHostAgentServer = async () => {
 			if (!_remoteExtensionHostAgentServer) {
@@ -153,7 +153,7 @@ function sanitizeStringArg(val: unknown): string | undefined {
  * provided) so they survive process teardown (an async stdio write from an
  * `exit` handler does not).
  */
-function installServerProcessExitDiagnostics(): void {
+function installServerProcessExitDiagnostics(logsPathArg: string): void {
 	if (!process.env['VSCODE_SERVER_EXIT_DIAGNOSTICS']) {
 		return;
 	}
@@ -167,7 +167,7 @@ function installServerProcessExitDiagnostics(): void {
 	// so the exit-time lines we care about most were being dropped. A synchronous
 	// `fs.appendFileSync` survives teardown. We target the server's `--logsPath`
 	// directory because it is captured as a smoke test artifact.
-	const logsPath = sanitizeStringArg(parsedArgs['logsPath']) || os.tmpdir();
+	const logsPath = sanitizeStringArg(logsPathArg) || os.tmpdir();
 	const diagnosticsFile = path.join(logsPath, 'server-exit-diagnostics.log');
 	try {
 		fs.mkdirSync(logsPath, { recursive: true });

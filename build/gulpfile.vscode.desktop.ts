@@ -27,7 +27,6 @@ import { createAsar } from './lib/asar.ts';
 import minimist from 'minimist';
 import { compileBuildWithoutManglingTask, compileBuildWithManglingTask } from './gulpfile.compile.ts';
 import { copyCodiconsTask } from './lib/compilation.ts';
-import type { EmbeddedProductInfo } from './lib/embeddedType.ts';
 import { useEsbuildTranspile } from './buildConfig.ts';
 import { promisify } from 'util';
 import globCallback from 'glob';
@@ -178,14 +177,10 @@ const bundleVSCodeTask = task.define('bundle-vscode', task.series(
 ));
 task.task(bundleVSCodeTask);
 
-const sourceMappingURLBase = `https://main.vscode-cdn.net/sourcemaps/${commit}`;
-const isCI = !!process.env['CI'] || !!process.env['BUILD_ARTIFACTSTAGINGDIRECTORY'] || !!process.env['GITHUB_WORKSPACE'];
-const useCdnSourceMapsForPackagingTasks = isCI;
-const stripSourceMapsInPackagingTasks = isCI;
 const minifyVSCodeTask = task.define('minify-vscode', task.series(
 	bundleVSCodeTask,
 	util.rimraf('out-vscode-min'),
-	optimize.minifyTask('out-vscode', `${sourceMappingURLBase}/core`)
+	optimize.minifyTask('out-vscode', undefined)
 ));
 task.task(minifyVSCodeTask);
 
@@ -197,6 +192,9 @@ task.task(task.define('core-ci-old', task.series(
 		task.task('minify-vscode-server-web') as task.Task,
 	)
 )));
+
+const esbuildVSCodeTask = task.define('esbuild-vscode-min', () => runEsbuildBundle('out-vscode-min', true, true, 'desktop', undefined));
+task.task(esbuildVSCodeTask);
 
 task.task(task.define('core-ci', task.series(
 	copyCodiconsTask,
@@ -250,6 +248,7 @@ function computeChecksum(filename: string): string {
 function packageTask(platform: string, arch: string, sourceFolderName: string, destinationFolderName: string, _opts?: { stats?: boolean }) {
 	const destination = path.join(BUILD_ROOT, destinationFolderName);
 	platform = platform || process.platform;
+	const isCI = !!process.env['CI']
 
 	const task = () => {
 		const out = sourceFolderName;
@@ -268,9 +267,7 @@ function packageTask(platform: string, arch: string, sourceFolderName: string, d
 			'vs/sessions/electron-browser/sessions.js'
 		]);
 
-		const sourceFilterPattern = stripSourceMapsInPackagingTasks
-			? ['**', '!**/*.{js,css}.map']
-			: ['**'];
+		const sourceFilterPattern = isCI ? ['**', '!**/*.{js,css}.map'] : ['**'];
 		const src = gulp.src(out + '/**', { base: '.' })
 			.pipe(rename(function (path) { path.dirname = path.dirname!.replace(new RegExp('^' + out), 'out'); }))
 			.pipe(util.setExecutableBit(['**/*.sh']))
@@ -319,7 +316,7 @@ function packageTask(platform: string, arch: string, sourceFolderName: string, d
 		const dependenciesSrc = productionDependencies.map(d => path.relative(root, d)).map(d => [`${d}/**`, `!${d}/**/{test,tests}/**`]).flat().concat('!**/*.mk');
 
 		const depFilterPattern = ['**', `!**/${config.version}/**`, '!**/bin/darwin-arm64-87/**', '!**/package-lock.json', '!**/yarn.lock'];
-		if (stripSourceMapsInPackagingTasks) {
+		if (isCI) {
 			depFilterPattern.push('!**/*.{js,css}.map');
 		}
 
@@ -328,7 +325,6 @@ function packageTask(platform: string, arch: string, sourceFolderName: string, d
 			.pipe(util.cleanNodeModules(path.join(import.meta.dirname, '.moduleignore')))
 			.pipe(util.cleanNodeModules(path.join(import.meta.dirname, `.moduleignore.${process.platform}`)))
 			.pipe(jsFilter)
-			.pipe(util.rewriteSourceMappingURL(sourceMappingURLBase))
 			.pipe(jsFilter.restore)
 			.pipe(createAsar(path.join(process.cwd(), 'node_modules'), [
 				'**/*.node',
@@ -360,7 +356,10 @@ function packageTask(platform: string, arch: string, sourceFolderName: string, d
 				'node_modules/zod/**'
 			], 'node_modules.asar'));
 
+		const builtinExtensions = gulp.src('extensions/**/*');
+
 		const mergeStreams = [
+			builtinExtensions,
 			packageJsonStream,
 			productJsonStream,
 			license,
@@ -636,7 +635,7 @@ BUILD_TARGETS.forEach(buildTarget => {
 					!!minified,
 					true,
 					'desktop',
-					minified && useCdnSourceMapsForPackagingTasks ? `${sourceMappingURLBase}/core` : undefined
+					undefined
 				)
 			);
 			desktopTask = task.define(`vscode-desktop${dashed(platform)}${dashed(arch)}${dashed(minified)}`, task.series(

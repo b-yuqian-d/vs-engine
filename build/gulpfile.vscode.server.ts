@@ -13,7 +13,7 @@ import * as optimize from './lib/optimize.ts';
 import { inlineMeta } from './lib/inlineMeta.ts';
 import product from '../product.json' with { type: 'json' };
 import { getProductionDependencies } from './lib/dependencies.ts';
-import { readISODate } from './lib/date.ts';
+import { readISODate, writeISODate } from './lib/date.ts';
 import vfs from 'vinyl-fs';
 import packageJson from '../package.json' with { type: 'json' };
 import { untar } from './lib/util.ts';
@@ -31,6 +31,9 @@ import buildfile from './buildfile.ts';
 import { fetchUrls } from './lib/fetch.ts';
 import { downloadFeedPackage } from './lib/azureFeed.ts';
 import { readAgentSdkResults } from './agent-sdk/common.ts';
+import { runEsbuildBundle } from './lib/esbuild.ts';
+import { useEsbuildTranspile } from './buildConfig.ts';
+import { copyCodiconsTask } from './lib/compilation.ts';
 
 
 const rcedit = promisify(rceditCallback);
@@ -415,7 +418,10 @@ function packageTask(target: string, platform: string, arch: string, sourceFolde
 			].map(resource => gulp.src(resource, { base: '.' }).pipe(rename(resource)));
 		}
 
+		const builtinExtensions = gulp.src('extensions/**/*');
+
 		const all = es.merge(
+			builtinExtensions,
 			packageJsonStream,
 			productJsonStream,
 			license,
@@ -586,12 +592,16 @@ function tweakProductForServerWeb(product: typeof import('../product.json')) {
 	));
 	task.task(minifyTask);
 
+	const sourceMappingURLBase = `https://main.vscode-cdn.net/sourcemaps/${commit}`;
+	const esbuildBundleTask = task.define(`esbuild-vscode-${target}`, () => runEsbuildBundle(`out-vscode-${target}-min`, true, true, target as 'server' | 'server-web', `${sourceMappingURLBase}/core`));
+	task.task(esbuildBundleTask);
+
 	BUILD_TARGETS.forEach(buildTarget => {
 		const dashed = (str: string) => (str ? `-${str}` : ``);
 		const platform = buildTarget.platform;
 		const arch = buildTarget.arch;
 
-		['', 'min'].forEach(minified => {
+		const [vscode, vscodeMin] = ['', 'min'].map(minified => {
 			const sourceFolderName = `out-vscode-${target}${dashed(minified)}`;
 			const destinationFolderName = `out-package-${target}${dashed(platform)}${dashed(arch)}`;
 
@@ -608,12 +618,37 @@ function tweakProductForServerWeb(product: typeof import('../product.json')) {
 			const serverTaskCI = task.define(`vscode-${target}${dashed(platform)}${dashed(arch)}${dashed(minified)}-ci`, task.series(...packageTasks));
 			task.task(serverTaskCI);
 
-			const serverTask = task.define(`vscode-${target}${dashed(platform)}${dashed(arch)}${dashed(minified)}`, task.series(
-				compileBuildWithManglingTask,
-				minified ? minifyTask : bundleTask,
-				serverTaskCI
-			));
+			let serverTask: task.Task;
+			if (useEsbuildTranspile) {
+				const esbuildBundleTask = task.define(
+					`esbuild-bundle-${target}${dashed(platform)}${dashed(arch)}${dashed(minified)}`,
+					() => runEsbuildBundle(
+						sourceFolderName,
+						!!minified,
+						true,
+						target as 'server' | 'server-web',
+					)
+				);
+				serverTask = task.define(`vscode-${target}${dashed(platform)}${dashed(arch)}${dashed(minified)}`, task.series(
+					copyCodiconsTask,
+					writeISODate('out-build'),
+					esbuildBundleTask,
+					serverTaskCI
+				));
+			} else {
+				serverTask = task.define(`vscode-${target}${dashed(platform)}${dashed(arch)}${dashed(minified)}`, task.series(
+					compileBuildWithManglingTask,
+					minified ? minifyTask : bundleTask,
+					serverTaskCI
+				));
+			}
 			task.task(serverTask);
+			return serverTask;
 		});
+
+		if (process.platform === platform && process.arch === arch) {
+			task.task(task.define(`vscode${dashed(target)}`, task.series(vscode)));
+			task.task(task.define(`vscode${dashed(target)}-min`, task.series(vscodeMin)));
+		}
 	});
 });
