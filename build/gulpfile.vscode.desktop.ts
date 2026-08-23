@@ -356,7 +356,7 @@ function packageTask(platform: string, arch: string, sourceFolderName: string, d
 				'node_modules/zod/**'
 			], 'node_modules.asar'));
 
-		const builtinExtensions = gulp.src('extensions/**/*');
+		const builtinExtensions = gulp.src('extensions/**/*', { base: '.' });
 
 		const mergeStreams = [
 			builtinExtensions,

@@ -418,7 +418,7 @@ function packageTask(target: string, platform: string, arch: string, sourceFolde
 			].map(resource => gulp.src(resource, { base: '.' }).pipe(rename(resource)));
 		}
 
-		const builtinExtensions = gulp.src('extensions/**/*');
+		const builtinExtensions = gulp.src('extensions/**/*', { base: '.' });
 
 		const all = es.merge(
 			builtinExtensions,
