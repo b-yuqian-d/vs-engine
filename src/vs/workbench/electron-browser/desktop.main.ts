@@ -213,7 +213,7 @@ export class DesktopMain extends Disposable {
 		}
 
 		// Default Account
-		const defaultAccountService = this._register(new DefaultAccountService(productService));
+		const defaultAccountService = this._register(new DefaultAccountService());
 		serviceCollection.set(IDefaultAccountService, defaultAccountService);
 
 		// Policies

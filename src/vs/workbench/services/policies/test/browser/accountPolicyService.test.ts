@@ -15,7 +15,6 @@ import { NullLogService } from '../../../../../platform/log/common/log.js';
 import { COPILOT_DISABLE_BYPASS_PERMISSIONS_MODE_KEY, COPILOT_ENABLED_PLUGINS_KEY, COPILOT_SANDBOX_ENABLED_KEY, INativeManagedSettingsService, IFileManagedSettingsService } from '../../../../../platform/policy/common/copilotManagedSettings.js';
 import { AbstractPolicyService, IPolicyService, PolicyDefinition, PolicyValue, PolicyValueSource } from '../../../../../platform/policy/common/policy.js';
 import { Registry } from '../../../../../platform/registry/common/platform.js';
-import { TestProductService } from '../../../../test/common/workbenchTestServices.js';
 import { DefaultAccountService } from '../../../accounts/browser/defaultAccount.js';
 import { AccountPolicyGateState, AccountPolicyGateUnsatisfiedReason, AccountPolicyService, APPROVED_ACCOUNT_ORGANIZATIONS_POLICY_NAME, IAccountPolicyGateInfo } from '../../common/accountPolicyService.js';
 
@@ -198,7 +197,7 @@ suite('AccountPolicyService', () => {
 		const defaultConfiguration = disposables.add(new DefaultConfiguration(new NullLogService()));
 		await defaultConfiguration.initialize();
 
-		defaultAccountService = disposables.add(new DefaultAccountService(TestProductService));
+		defaultAccountService = disposables.add(new DefaultAccountService());
 		policyService = disposables.add(new AccountPolicyService(logService, defaultAccountService));
 		policyConfiguration = disposables.add(new PolicyConfiguration(defaultConfiguration, policyService, new NullLogService()));
 
@@ -506,7 +505,7 @@ suite('AccountPolicyService', () => {
 		const expected = { 'assign-issue@skills': true, 'other@acme': false };
 
 		const resolveEnabledPlugins = async (source: { server?: string; mdm?: string }): Promise<unknown> => {
-			const accountService = disposables.add(new DefaultAccountService(TestProductService));
+			const accountService = disposables.add(new DefaultAccountService());
 			const nativeManagedSettingsService = disposables.add(new FakeNativeManagedSettingsService(
 				source.mdm !== undefined ? { [COPILOT_ENABLED_PLUGINS_KEY]: source.mdm } : {},
 			));
@@ -639,7 +638,7 @@ suite('AccountPolicyService', () => {
 			managed.setPolicy(APPROVED_ACCOUNT_ORGANIZATIONS_POLICY_NAME, value);
 		}
 
-		const accountService = disposables.add(new DefaultAccountService(TestProductService));
+		const accountService = disposables.add(new DefaultAccountService());
 		if (opts.account !== null && opts.account !== undefined) {
 			const policyData = opts.policyData === undefined ? {} : opts.policyData;
 			accountService.setDefaultAccountProvider(new DefaultAccountProvider(opts.account, policyData));
@@ -723,7 +722,7 @@ suite('AccountPolicyService', () => {
 
 		const managed = disposables.add(new FakeManagedPolicyService());
 		managed.setPolicy(APPROVED_ACCOUNT_ORGANIZATIONS_POLICY_NAME, JSON.stringify(['ApprovedOrg']));
-		const accountService = disposables.add(new DefaultAccountService(TestProductService));
+		const accountService = disposables.add(new DefaultAccountService());
 		accountService.setDefaultAccountProvider(new MismatchedProvider(NON_GITHUB_ACCOUNT, {}));
 		await accountService.refresh();
 		const service = disposables.add(new AccountPolicyService(logService, accountService, managed));
@@ -816,7 +815,7 @@ suite('AccountPolicyService', () => {
 		}
 
 		const managed = disposables.add(new AsyncManagedPolicyService(JSON.stringify(['OnlyOtherOrg'])));
-		const accountService = disposables.add(new DefaultAccountService(TestProductService));
+		const accountService = disposables.add(new DefaultAccountService());
 		accountService.setDefaultAccountProvider(new DefaultAccountProvider(APPROVED_ORG_ACCOUNT, {}));
 		await accountService.refresh();
 

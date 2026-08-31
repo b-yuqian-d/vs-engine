@@ -20,7 +20,6 @@ import { NullLogService } from '../../../../../platform/log/common/log.js';
 import { FilePolicyService } from '../../../../../platform/policy/common/filePolicyService.js';
 import { PolicyValueSource } from '../../../../../platform/policy/common/policy.js';
 import { Registry } from '../../../../../platform/registry/common/platform.js';
-import { TestProductService } from '../../../../test/common/workbenchTestServices.js';
 import { DefaultAccountService } from '../../../accounts/browser/defaultAccount.js';
 import { AccountPolicyService } from '../../common/accountPolicyService.js';
 import { MultiplexPolicyService } from '../../../../../platform/policy/common/multiplexPolicyService.js';
@@ -184,7 +183,7 @@ suite('MultiplexPolicyService', () => {
 		const diskFileSystemProvider = disposables.add(new InMemoryFileSystemProvider());
 		disposables.add(fileService.registerProvider(policyFile.scheme, diskFileSystemProvider));
 
-		defaultAccountService = disposables.add(new DefaultAccountService(TestProductService));
+		defaultAccountService = disposables.add(new DefaultAccountService());
 		policyService = disposables.add(new MultiplexPolicyService([
 			disposables.add(new FilePolicyService(policyFile, fileService, new NullLogService())),
 			disposables.add(new AccountPolicyService(logService, defaultAccountService)),
