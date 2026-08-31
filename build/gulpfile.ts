@@ -8,7 +8,6 @@ EventEmitter.defaultMaxListeners = 100;
 import glob from 'glob';
 import { createRequire } from 'node:module';
 import { monacoTypecheckTask /* , monacoTypecheckWatchTask */ } from './gulpfile.editor.ts';
-import { compileExtensionMediaTask, compileExtensionsTask, watchExtensionsTask } from './gulpfile.extensions.ts';
 import * as compilation from './lib/compilation.ts';
 import * as task from './lib/gulp/task.ts';
 import * as util from './lib/util.ts';
@@ -41,10 +40,10 @@ const watchClientTask = task.define('watch-client', task.parallel(compilation.wa
 task.task(watchClientTask);
 
 // All
-const _compileTask = task.define('compile', task.parallel(monacoTypecheckTask, compileClientTask, compileExtensionsTask, compileExtensionMediaTask));
+const _compileTask = task.define('compile', task.parallel(monacoTypecheckTask, compileClientTask));
 task.task(_compileTask);
 
-task.task(task.define('watch', task.parallel(/* monacoTypecheckWatchTask, */ watchClientTask, watchExtensionsTask)));
+task.task(task.define('watch', task.parallel(/* monacoTypecheckWatchTask, */ watchClientTask)));
 
 // Default
 task.task('default', _compileTask);
