@@ -12,10 +12,6 @@ interface IPackageConfiguration {
 	readonly dependencies?: Readonly<Record<string, string>>;
 }
 
-function getDependencyVersion(packageConfiguration: IPackageConfiguration, packageName: string): string | undefined {
-	return packageConfiguration.dependencies?.[packageName]?.replace(/^[~^]/, '');
-}
-
 /**
  * @deprecated It is preferred that you use `IProductService` if you can. This
  * allows web embedders to override our defaults. But for things like `product.quality`,
@@ -42,8 +38,8 @@ else if (globalThis._VSCODE_PRODUCT_JSON && globalThis._VSCODE_PACKAGE_JSON) {
 	// Running out of sources
 	if (env['VSCODE_DEV']) {
 		Object.assign(product, {
-			nameShort: `${product.nameShort} Dev`,
-			nameLong: `${product.nameLong} Dev`,
+			nameShort: `${product.nameShort}-dev`,
+			nameLong: `${product.nameLong}-dev`,
 			dataFolderName: `${product.dataFolderName}-dev`,
 			serverDataFolderName: product.serverDataFolderName ? `${product.serverDataFolderName}-dev` : undefined
 		});
@@ -57,14 +53,6 @@ else if (globalThis._VSCODE_PRODUCT_JSON && globalThis._VSCODE_PACKAGE_JSON) {
 			version: packageConfiguration.version
 		});
 	}
-
-	if (!product.copilotVersions) {
-		const runtime = getDependencyVersion(packageConfiguration, '@github/copilot');
-		const sdk = getDependencyVersion(packageConfiguration, '@github/copilot-sdk');
-		if (runtime && sdk) {
-			Object.assign(product, { copilotVersions: { runtime, sdk } });
-		}
-	}
 }
 
 // Web environment or unknown
@@ -77,31 +65,15 @@ else {
 	// Running out of sources
 	if (Object.keys(product).length === 0) {
 		Object.assign(product, {
-			version: '1.104.0-dev',
-			nameShort: 'Code - OSS Dev',
-			nameLong: 'Code - OSS Dev',
-			applicationName: 'code-oss',
+			version: '1.135.0-dev',
+			nameShort: 'vscode-oss-dev',
+			nameLong: 'vscode-oss-dev',
+			applicationName: 'vscode-oss',
 			dataFolderName: '.vscode-oss',
-			urlProtocol: 'code-oss',
+			urlProtocol: 'vscode-oss',
 			reportIssueUrl: 'https://github.com/microsoft/vscode/issues/new',
 			licenseName: 'MIT',
 			licenseUrl: 'https://github.com/microsoft/vscode/blob/main/LICENSE.txt',
-			serverLicenseUrl: 'https://github.com/microsoft/vscode/blob/main/LICENSE.txt',
-			defaultChatAgent: {
-				extensionId: 'GitHub.copilot',
-				chatExtensionId: 'GitHub.copilot-chat',
-				provider: {
-					default: {
-						id: 'github',
-						name: 'GitHub',
-					},
-					enterprise: {
-						id: 'github-enterprise',
-						name: 'GitHub Enterprise',
-					}
-				},
-				providerScopes: []
-			}
 		});
 	}
 }
