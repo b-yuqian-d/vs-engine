@@ -1,3 +1,4 @@
+<!DOCTYPE html>
 <html>
 
 <head>
@@ -79,85 +80,6 @@
 			timeout: isCI ? 30000 : 5000
 		});
 	</script>
-
-	<script>
-		const isBuild = urlParams.get('build');
-		const out = !!isBuild ? 'out-build' : 'out';
-		const tasks =[];
-
-		// configure loader
-		const baseUrl = window.location.href;
-
-		// generate import map
-		const importMapParent = document.currentScript.parentNode;
-		const importMap = {
-			imports: {
-				vs: new URL(`../../../${out}/vs`, baseUrl).href,
-				assert: new URL('../assert.js', baseUrl).href,
-				sinon: new URL('../../../node_modules/sinon/pkg/sinon-esm.js', baseUrl).href,
-				'sinon-test': new URL('../../../node_modules/sinon-test/dist/sinon-test-es.js', baseUrl).href,
-				'@xterm/xterm': new URL('../../../node_modules/@xterm/xterm/lib/xterm.js', baseUrl).href,
-				'@vscode/iconv-lite-umd': new URL('../../../node_modules/@vscode/iconv-lite-umd/lib/iconv-lite-umd.js', baseUrl).href,
-				jschardet: new URL('../../../node_modules/jschardet/dist/jschardet.min.js', baseUrl).href
-			}
-		}
-
-		// ---- CSS tricks
-
-		const cssDataBase64 = urlParams.get('_devCssData');
-		if (typeof cssDataBase64 === 'string') {
-
-			const style = document.createElement('style');
-			style.type = 'text/css';
-			document.head.appendChild(style);
-
-			globalThis._VSCODE_CSS_LOAD = function (url) {
-				// debugger;
-				style.sheet.insertRule(`@import url(${url});`);
-			};
-
-			const cssData = Uint8Array.from(atob(cssDataBase64), c => c.charCodeAt(0));
-			tasks.push(new Response(new Blob([cssData], {type:'application/octet-binary'}).stream().pipeThrough(new DecompressionStream('gzip'))).text().then(value => {
-				const cssModules = value.split(',');
-				for (const cssModule of cssModules) {
-					const cssUrl = new URL(`../../../${out}/${cssModule}`, baseUrl).href;
-					const jsSrc = `globalThis._VSCODE_CSS_LOAD('${cssUrl}');\n`;
-					const blob = new Blob([jsSrc], { type: 'application/javascript' });
-					importMap.imports[cssUrl] = URL.createObjectURL(blob);
-				}
-			}).catch(err => {
-				console.error(err);
-			}));
-		}
-
-		const initPromise = Promise.allSettled(tasks).then(() => {
-
-			const rawImportMap = JSON.stringify(importMap, undefined, 2);
-			const importMapScript = document.createElement('script');
-			importMapScript.type = 'importmap';
-			importMapScript.textContent = rawImportMap;
-			importMapParent.appendChild(importMapScript);
-
-		}).then(() => {
-			const bootstrapScript = document.createElement('script');
-			bootstrapScript.type = 'module';
-			bootstrapScript.textContent = document.getElementById('bootstrap').textContent
-			document.getElementById('bootstrap').remove();
-			document.body.append(bootstrapScript);
-		});
-
-		// set up require
-
-		globalThis._VSCODE_FILE_ROOT = new URL('../../../src', baseUrl).href;
-		globalThis.require = {
-			paths: {
-				xterm: new URL('../../../node_modules/xterm', baseUrl).href,
-				'@vscode/iconv-lite-umd': new URL('../../../node_modules/@vscode/iconv-lite-umd', baseUrl).href,
-				jschardet: new URL('../../../node_modules/jschardet', baseUrl).href
-			}
-		}
-	</script>
-
 	<script>
 		function serializeSuite(suite) {
 			return {
@@ -221,26 +143,37 @@
 		for (const method of remoteMethods) {
 			const prefix = window.location.pathname.split('/')[1];
 			globalThis[method] = async (...args) => {
-				const res = await fetch(`/${prefix}/remoteMethod/${method}`, {
-					body: JSON.stringify(args),
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' }
-				});
-
-				return res.json();
+				try {
+					const res = await fetch(`/${prefix}/remoteMethod/${method}`, {
+						body: JSON.stringify(args),
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' }
+					});
+					const result = await res.json();
+					if (result === null) {
+						return undefined;
+					}
+					return result;
+				} catch (err) {
+					console.error(`Remote method ${method} failed with error: ${err}`);
+					throw err;
+				}
 			}
 		}
 
 		async function loadModules(modules) {
+			const start = performance.now();
 			for (const file of modules) {
 				mocha.suite.emit(Mocha.Suite.constants.EVENT_FILE_PRE_REQUIRE, globalThis, file, mocha);
-				const m = await new Promise((resolve, reject) => import(`../../../${out}/${file}.js`).then(resolve, err => {
-					console.log("BAD " + file + JSON.stringify(err, undefined, '\t'));
+				const m = await new Promise((resolve, reject) => import(`../../../${out}/${file}.js`).then(resolve, error => {
+					console.error(`Error when loading test module: ${file}\nerror.message: ${error.message}\nerror.stack: ${error.stack}`)
 					resolve({});
 				}));
 				mocha.suite.emit(Mocha.Suite.constants.EVENT_FILE_REQUIRE, m, file, mocha);
 				mocha.suite.emit(Mocha.Suite.constants.EVENT_FILE_POST_REQUIRE, globalThis, file, mocha);
 			}
+			const end = performance.now();
+			console.log(`test modules are loaded in ${(end-start)/1000} seconds`);
 		}
 
 		let _resolveTestData;
@@ -256,7 +189,7 @@
 		if (Array.isArray(modules) && modules.length > 0) {
 			console.log('MANUALLY running tests', modules);
 
-			loadAndRun(modules, true).then(() => console.log('done'), err => console.log(err));
+			loadAndRun({ modules }, true).then(() => console.log('done'), err => console.log(err));
 		}
 	</script>
 
@@ -279,6 +212,85 @@
 		});
 
 		_resolveTestRun();
+	</script>
+	<script>
+		const isBuild = urlParams.get('build');
+		const out = !!isBuild ? 'out-build' : 'out';
+		const tasks =[];
+
+		// configure loader
+		const baseUrl = window.location.href;
+
+		// generate import map
+		const importMapParent = document.currentScript.parentNode;
+		const importMap = {
+			imports: {
+				vs: new URL(`../../../${out}/vs`, baseUrl).href,
+				assert: new URL('../assert.js', baseUrl).href,
+				sinon: new URL('../../../node_modules/sinon/pkg/sinon-esm.js', baseUrl).href,
+				'sinon-test': new URL('../../../node_modules/sinon-test/dist/sinon-test-es.js', baseUrl).href,
+				'@xterm/xterm': new URL('../../../node_modules/@xterm/xterm/lib/xterm.js', baseUrl).href,
+				'@vscode/iconv-lite-umd': new URL('../../../node_modules/@vscode/iconv-lite-umd/lib/iconv-lite-umd.js', baseUrl).href,
+				jschardet: new URL('../../../node_modules/jschardet/dist/jschardet.min.js', baseUrl).href
+			}
+		}
+
+		// ---- CSS tricks
+		const style = document.createElement('style');
+		style.type = 'text/css';
+		document.head.appendChild(style);
+
+		globalThis._VSCODE_CSS_LOAD = function (url) {
+			debugger;
+			style.sheet.insertRule(`@import url(${url});`);
+		};
+
+		const setupCssModules = async () => {
+			const prefix = window.location.pathname.split('/')[1];
+			const url = `/${prefix}/css_modules`;
+			try {
+				const response = await fetch(url)
+				if (!response.ok) {
+					throw new Error(`Fetch css modules failed: ${response.status}`);
+				}
+				const cssModules = await response.json();
+				for (const cssModule of cssModules) {
+					const cssUrl = new URL(`../../../${out}/${cssModule}`, baseUrl).href;
+					const jsSrc = `globalThis._VSCODE_CSS_LOAD('${cssUrl}');\n`;
+					const blob = new Blob([jsSrc], { type: 'application/javascript' });
+					importMap.imports[cssUrl] = URL.createObjectURL(blob);
+				}
+			} catch (err) {
+				console.error(err);
+			}
+		}
+		tasks.push(setupCssModules());
+
+		const initPromise = Promise.allSettled(tasks).then(() => {
+			const rawImportMap = JSON.stringify(importMap, undefined, 2);
+			const importMapScript = document.createElement('script');
+			importMapScript.type = 'importmap';
+			importMapScript.textContent = rawImportMap;
+			importMapParent.appendChild(importMapScript);
+
+		}).then(() => {
+			const bootstrapScript = document.createElement('script');
+			bootstrapScript.type = 'module';
+			bootstrapScript.textContent = document.getElementById('bootstrap').textContent
+			document.getElementById('bootstrap').remove();
+			document.body.append(bootstrapScript);
+		});
+
+		// set up require
+
+		globalThis._VSCODE_FILE_ROOT = new URL('../../../src', baseUrl).href;
+		globalThis.require = {
+			paths: {
+				xterm: new URL('../../../node_modules/xterm', baseUrl).href,
+				'@vscode/iconv-lite-umd': new URL('../../../node_modules/@vscode/iconv-lite-umd', baseUrl).href,
+				jschardet: new URL('../../../node_modules/jschardet', baseUrl).href
+			}
+		}
 	</script>
 </body>
 

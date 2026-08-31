@@ -159,8 +159,7 @@ const testModules = (async function () {
 	});
 })();
 
-function consoleLogFn(msg) {
-	const type = msg.type();
+function consoleLogFn(type) {
 	const candidate = console[type];
 	if (candidate) {
 		return candidate;
@@ -181,20 +180,35 @@ async function createServer() {
 
 	/** Handles a request for a remote method call, invoking `fn` and returning the result */
 	const remoteMethod = async (req, response, fn) => {
-		const params = await new Promise((resolve, reject) => {
-			const body = [];
-			req.on('data', chunk => body.push(chunk));
-			req.on('end', () => resolve(JSON.parse(Buffer.concat(body).toString())));
-			req.on('error', reject);
-		});
 		try {
+			const params = await new Promise((resolve, reject) => {
+				const body = [];
+				req.on('data', chunk => body.push(chunk));
+				req.on('end', () => resolve(JSON.parse(Buffer.concat(body).toString())));
+				req.on('error', reject);
+			});
 			const result = await fn(...params);
+			const output = result === undefined ? JSON.stringify(null) : JSON.stringify(result);
+			if (output === undefined) {
+				throw Error('Cannot serialize return value for remote method call');
+			}
 			response.writeHead(200, { 'Content-Type': 'application/json' });
-			response.end(JSON.stringify(result));
+			response.end(output);
 		} catch (err) {
 			response.writeHead(500);
 			response.end(err.message);
+			console.error(err.message);
 		}
+	};
+
+	const handleCssModules = (_, response) => {
+			promisify(glob)('**/*.css', { cwd: out }).then(cssModules => {
+				response.writeHead(200, { 'Content-Type': 'application/json' });
+				response.end(JSON.stringify(cssModules));
+			}).catch((err => {
+				console.error(err);
+				response.writeHead(500, 'Server internal error');
+			}));
 	};
 
 	const server = http.createServer((request, response) => {
@@ -223,6 +237,8 @@ async function createServer() {
 				return remoteMethod(request, response, p => fs.promises.unlink(massagePath(p)));
 			case '/remoteMethod/__mkdirPInTests':
 				return remoteMethod(request, response, p => fs.promises.mkdir(massagePath(p), { recursive: true }));
+			case '/css_modules':
+				return handleCssModules(request, response);
 			default:
 				return serveStatic.handle(request, response);
 		}
@@ -242,8 +258,8 @@ async function createServer() {
 
 async function runTestsInBrowser(testModules, browserType, browserChannel) {
 	const server = await createServer();
-	const browser = await playwright[browserType].launch({ headless: !Boolean(args.debug), devtools: Boolean(args.debug), channel: browserChannel });
-	const context = await browser.newContext();
+	const browser = await playwright[browserType].launch({ headless: !Boolean(args.debug), devtools: Boolean(args.debug), channel: browserChannel});
+	const context = await browser.newContext({ ignoreHTTPSErrors: true});
 	const page = await context.newPage();
 	const target = new URL(server.url + '/test/unit/browser/renderer.html');
 	target.searchParams.set('baseUrl', url.pathToFileURL(path.join(rootDir, 'src')).toString());
@@ -253,12 +269,6 @@ async function runTestsInBrowser(testModules, browserType, browserChannel) {
 	if (process.env.BUILD_ARTIFACTSTAGINGDIRECTORY || process.env.GITHUB_WORKSPACE) {
 		target.searchParams.set('ci', 'true');
 	}
-
-	// append CSS modules as query-param
-	await promisify(require('glob'))('**/*.css', { cwd: out }).then(async cssModules => {
-		const cssData = await new Response((await new Response(cssModules.join(',')).blob()).stream().pipeThrough(new CompressionStream('gzip'))).arrayBuffer();
-		target.searchParams.set('_devCssData', Buffer.from(cssData).toString('base64'));
-	});
 
 	const emitter = new events.EventEmitter();
 	await page.exposeFunction('mocha_report', (type, data1, data2) => {
@@ -279,27 +289,31 @@ async function runTestsInBrowser(testModules, browserType, browserChannel) {
 	}
 
 	page.on('console', async msg => {
-		consoleLogFn(msg)(msg.text(), await Promise.all(msg.args().map(async arg => await arg.jsonValue())));
+		const type = msg.type();
+		const logFn = consoleLogFn(type);
+		const output = await Promise.all(msg.args().map(async arg => await arg.jsonValue()));
+		const wrapped = `\n>>>>>>     browser console.${type}     >>>>>>\n${output.join(' ')}\n<<<<<<     browser console.${type}     <<<<<<\n`;
+		logFn(wrapped);
 	});
 
 	withReporter(browserType, new EchoRunner(emitter, browserChannel ? `${browserType.toUpperCase()}-${browserChannel.toUpperCase()}` : browserType.toUpperCase()));
 
 	// collection failures for console printing
-	const failingModuleIds = [];
 	const failingTests = [];
 	emitter.on('fail', (test, err) => {
-		failingTests.push({ title: test.fullTitle, message: err.message });
-
+    	const failureMessage = err.name !== undefined ? `${err.name}: ${err.message}` : err.message;
+		let failingModuleId;
 		if (err.stack) {
 			const regex = /(vs\/.*\.test)\.js/;
 			for (const line of String(err.stack).split('\n')) {
 				const match = regex.exec(line);
 				if (match) {
-					failingModuleIds.push(match[1]);
+					failingModuleId = match[1];
 					return;
 				}
 			}
 		}
+		failingTests.push({ title: test.fullTitle, message: failureMessage, moduleId: failingModuleId });
 	});
 
 	try {
@@ -317,13 +331,16 @@ async function runTestsInBrowser(testModules, browserType, browserChannel) {
 	}
 
 	if (failingTests.length > 0) {
-		let res = `The followings tests are failing:\n - ${failingTests.map(({ title, message }) => `${title} (reason: ${message})`).join('\n - ')}`;
-
-		if (failingModuleIds.length > 0) {
-			res += `\n\nTo DEBUG, open ${browserType.toUpperCase()} and navigate to ${target.href}?${failingModuleIds.map(module => `m=${module}`).join('&')}`;
+		let messages = `The following tests are failing in ${browserType.toUpperCase()}:\n`;
+		let index = 1;
+		for (const { title, message, moduleId } of failingTests) {
+			messages += `${index}) ${title}\n  reason: ${message}\n`;
+			if (moduleId) {
+				messages += `  To DEBUG: open ${browserType.toUpperCase()} and navigate to ${target.href}?m=${moduleId}\n`;
+			}
+			index++;
 		}
-
-		return `${res}\n`;
+		return messages;
 	}
 }
 

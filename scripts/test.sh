@@ -27,6 +27,9 @@ test -d node_modules || npm i
 # Get electron
 if [[ -z "${VSCODE_SKIP_PRELAUNCH}" ]]; then
 	npm run electron
+else
+	echo 'Run tests using Electron version:'
+	"$CODE" --version
 fi
 
 # Unit Tests
