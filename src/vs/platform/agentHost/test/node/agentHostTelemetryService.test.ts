@@ -145,7 +145,7 @@ suite('AgentHostTelemetryService', () => {
 			TelemetryLevel.NONE,
 			TelemetryLevel.NONE,
 			TelemetryLevel.NONE,
-			TelemetryLevel.USAGE,
+			TelemetryLevel.NONE,
 		]);
 	});
 
