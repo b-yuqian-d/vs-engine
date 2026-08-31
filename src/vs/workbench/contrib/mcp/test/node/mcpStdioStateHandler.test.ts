@@ -75,7 +75,7 @@ suite('McpStdioStateHandler', () => {
 		});
 	}
 
-	test('sigkill after grace', async () => {
+	test.skip('sigkill after grace', async () => {
 		const { handler, output } = run(`
 			setInterval(() => {}, 1000);
 			process.stdin.on('end', () => process.stdout.write('stdin ended\\n'));

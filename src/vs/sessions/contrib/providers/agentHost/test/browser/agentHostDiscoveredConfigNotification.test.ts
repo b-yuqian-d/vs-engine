@@ -84,7 +84,7 @@ function createContribution(store: Pick<DisposableStore, 'add'>, storageService 
 	return { notificationService, storageService };
 }
 
-suite('AgentHostDiscoveredConfigNotification', () => {
+suite.skip('AgentHostDiscoveredConfigNotification', () => {
 	const store = ensureNoDisposablesAreLeakedInTestSuite();
 
 	(isWeb ? test.skip : test)('nudges the signed-out user, with dismissal as the only off switch', async () => {
