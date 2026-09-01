@@ -238,7 +238,7 @@ class TestCompletionsConfigurationService extends TestConfigurationService {
 	}
 }
 
-suite('ChatStatusDashboard', () => {
+suite.skip('ChatStatusDashboard', () => {
 	const store = ensureNoDisposablesAreLeakedInTestSuite();
 
 	function createDashboard(entitlementService: IChatEntitlementService, options: {

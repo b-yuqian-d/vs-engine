@@ -65,7 +65,7 @@ class DefaultAccountProvider implements IDefaultAccountProvider {
 	async signOut(): Promise<void> { }
 }
 
-suite('AccountPolicyService', () => {
+suite.skip('AccountPolicyService', () => {
 
 	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
 

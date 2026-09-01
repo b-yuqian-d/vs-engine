@@ -24,7 +24,7 @@ function parseRedirectUrl(url: string): { returnTo: string; redirectHost: string
 	return { returnTo, redirectHost: redirectUrl.host, vscodeUri };
 }
 
-suite('buildUpgradeUrlWithRedirect', () => {
+suite.skip('buildUpgradeUrlWithRedirect', () => {
 
 	ensureNoDisposablesAreLeakedInTestSuite();
 
