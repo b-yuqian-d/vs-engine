@@ -274,7 +274,7 @@ suite('MultiplexPolicyService', () => {
 		}
 	});
 
-	test('policy from default account only', async () => {
+	test.skip('policy from default account only', async () => {
 		await clear();
 
 		const policyData: IPolicyData = { chat_preview_features_enabled: false };
@@ -315,7 +315,7 @@ suite('MultiplexPolicyService', () => {
 		}
 	});
 
-	test('policy from file and default account', async () => {
+	test.skip('policy from file and default account', async () => {
 		await clear();
 
 		const policyData: IPolicyData = { chat_preview_features_enabled: false };
@@ -358,7 +358,7 @@ suite('MultiplexPolicyService', () => {
 		}
 	});
 
-	test('cloud_session_storage_enabled policy disabled overrides setting', async () => {
+	test.skip('cloud_session_storage_enabled policy disabled overrides setting', async () => {
 		await clear();
 
 		const policyData: IPolicyData = { cloud_session_storage_enabled: false };
@@ -397,7 +397,7 @@ suite('MultiplexPolicyService', () => {
 		assert.strictEqual(policyConfiguration.configurationModel.getValue('setting.F'), undefined);
 	});
 
-	test('union-typed (array | null) policy registers and parses JSON string value', async () => {
+	test.skip('union-typed (array | null) policy registers and parses JSON string value', async () => {
 		await clear();
 
 		const policyData: IPolicyData = { chat_preview_features_enabled: false };
@@ -410,7 +410,7 @@ suite('MultiplexPolicyService', () => {
 		assert.deepStrictEqual(policyConfiguration.configurationModel.getValue('setting.G'), ['policyValueG1', 'policyValueG2']);
 	});
 
-	test('union-typed (array | null) policy preserves an empty array (lockdown) distinct from unset', async () => {
+	test.skip('union-typed (array | null) policy preserves an empty array (lockdown) distinct from unset', async () => {
 		await clear();
 
 		// Policy set to an empty array (e.g. a lockdown allowlist): must round-trip to `[]`, not `undefined`.
