@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Disposable } from '../../../base/common/lifecycle.js';
-import { IChatStatusItemService } from '../../contrib/chat/browser/chatStatus/chatStatusItemService.js';
 import { IExtHostContext, extHostNamedCustomer } from '../../services/extensions/common/extHostCustomers.js';
 import { ChatStatusItemDto, MainContext, MainThreadChatStatusShape } from '../common/extHost.protocol.js';
 
@@ -13,22 +12,15 @@ export class MainThreadChatStatus extends Disposable implements MainThreadChatSt
 
 	constructor(
 		_extHostContext: IExtHostContext,
-		@IChatStatusItemService private readonly _chatStatusItemService: IChatStatusItemService,
 	) {
 		super();
 	}
 
 	$setEntry(id: string, entry: ChatStatusItemDto): void {
-		this._chatStatusItemService.setOrUpdateEntry({
-			id,
-			label: entry.title,
-			description: entry.description,
-			detail: entry.detail,
-			tooltip: entry.tooltip,
-		});
+		// no op
 	}
 
 	$disposeEntry(id: string): void {
-		this._chatStatusItemService.deleteEntry(id);
+		// no op
 	}
 }
