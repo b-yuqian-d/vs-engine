@@ -38,7 +38,6 @@ import { RemoteNameContext, ResourceContextKey } from '../../../common/contextke
 import { AccessibleViewRegistry } from '../../../../platform/accessibility/browser/accessibleViewRegistry.js';
 import { SCMAccessibilityHelp } from './scmAccessibilityHelp.js';
 import { EditorContextKeys } from '../../../../editor/common/editorContextKeys.js';
-import { SCMHistoryItemContextContribution } from './scmHistoryChatContext.js';
 import { ChatContextKeys } from '../../chat/common/actions/chatContextKeys.js';
 import { CHAT_SETUP_SUPPORT_ANONYMOUS_ACTION_ID } from '../../chat/browser/actions/chatActions.js';
 import { SCMInputContextKeys } from './scmInput.js';
@@ -153,12 +152,6 @@ Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench)
 registerWorkbenchContribution2(
 	SCMWorkingSetController.ID,
 	SCMWorkingSetController,
-	WorkbenchPhase.AfterRestored
-);
-
-registerWorkbenchContribution2(
-	SCMHistoryItemContextContribution.ID,
-	SCMHistoryItemContextContribution,
 	WorkbenchPhase.AfterRestored
 );
 
