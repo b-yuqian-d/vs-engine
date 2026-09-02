@@ -1,0 +1,18 @@
+[Unit]
+Description=X Virtual Frame Buffer server
+After=network.target syslog.target
+Documentation=man:Xvfb(1)
+
+[Service]
+Type=simple
+User=root
+Group=root
+ExecStart=/usr/bin/Xvfb :10 -ac -screen 0 1024x768x24
+StandardOutput=append:/tmp/Xvfb.out
+StandardError=append:/tmp/Xvfb.out
+Restart=on-failure
+RestartSec=5
+PIDFile=/var/run/Xvfb.pid
+
+[Install]
+WantedBy=multi-user.target
