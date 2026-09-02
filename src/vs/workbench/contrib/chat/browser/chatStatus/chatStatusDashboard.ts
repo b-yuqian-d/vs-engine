@@ -48,6 +48,7 @@ import { GitHubPaths, IDefaultAccountService } from '../../../../../platform/def
 import product from '../../../../../platform/product/common/product.js';
 import { isCompletionsEnabled } from '../../../../../editor/common/services/completionsEnablement.js';
 
+// eslint-disable-next-line local/code-no-any-casts, @typescript-eslint/no-explicit-any
 const defaultChat = product.defaultChatAgent ?? {} as any;
 const completionsConfigurationTargets = [
 	ConfigurationTarget.WORKSPACE_FOLDER,

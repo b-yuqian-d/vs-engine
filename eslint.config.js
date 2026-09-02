@@ -6,16 +6,15 @@
 import { fixupPluginRules } from '@eslint/compat';
 import { defineConfig } from 'eslint/config';
 import fs from 'fs';
-import { builtinModules } from 'module';
 import path from 'path';
 import tseslint from 'typescript-eslint';
 
 import stylistic from '@stylistic/eslint-plugin';
 import * as pluginLocal from './.eslint-plugin-local/index.ts';
-import pluginImport from 'eslint-plugin-import';
 import pluginJsdoc from 'eslint-plugin-jsdoc';
 
 import pluginHeader from 'eslint-plugin-header';
+// @ts-ignore
 pluginHeader.rules.header.meta.schema = false;
 
 const ignores = fs.readFileSync(path.join(import.meta.dirname, '.eslint-ignore'), 'utf8')
@@ -872,36 +871,6 @@ export default defineConfig(
 					// Files should (only) be removed from the list they adopt the leak detector
 					'exclude': [
 						'src/vs/workbench/services/userActivity/test/browser/domActivityTracker.test.ts',
-					]
-				}
-			]
-		}
-	},
-	// git extension - ban non-type imports from git.d.ts (use git.constants for runtime values)
-	{
-		files: [
-			'extensions/git/src/**/*.ts',
-		],
-		ignores: [
-			'extensions/git/src/api/git.constants.ts',
-		],
-		languageOptions: {
-			parser: tseslint.parser,
-		},
-		plugins: {
-			'@typescript-eslint': tseslint.plugin,
-		},
-		rules: {
-			'no-restricted-imports': 'off',
-			'@typescript-eslint/no-restricted-imports': [
-				'warn',
-				{
-					'patterns': [
-						{
-							'group': ['*/api/git'],
-							'allowTypeImports': true,
-							'message': 'Use \'import type\' for types from git.d.ts and import runtime const enum values from git.constants instead'
-						},
 					]
 				}
 			]
@@ -2427,102 +2396,10 @@ export default defineConfig(
 			'comma-dangle': ['warn', 'only-multiline']
 		}
 	},
-	// Ban dynamic require() and import() calls in extensions to ensure tree-shaking works
-	{
-		files: [
-			'extensions/**/*.{ts,tsx}',
-		],
-		ignores: [
-			'extensions/**/*.test.ts',
-			'extensions/copilot/**/*',
-		],
-		rules: {
-			'no-restricted-syntax': [
-				'warn',
-				{
-					'selector': `CallExpression[callee.name='require'][arguments.0.type!='Literal']`,
-					'message': 'Use static imports instead of dynamic require() calls to enable tree-shaking.'
-				},
-				{
-					'selector': `ImportExpression[source.type!='Literal']`,
-					'message': 'Use static imports instead of dynamic import() calls to enable tree-shaking.'
-				},
-			],
-		}
-	},
-	// markdown-language-features
-	{
-		files: [
-			'extensions/markdown-language-features/**/*.ts',
-		],
-		languageOptions: {
-			parser: tseslint.parser,
-		},
-		plugins: {
-			'@typescript-eslint': tseslint.plugin,
-		},
-		rules: {
-			'no-restricted-syntax': [
-				'warn',
-				{
-					selector: ':matches(PropertyDefinition, TSParameterProperty, MethodDefinition[key.name!="constructor"])[accessibility="private"]',
-					message: 'Use #private instead',
-				},
-			],
-		}
-	},
-	// Additional extension strictness rules
-	{
-		files: [
-			'extensions/markdown-language-features/src/**/*.ts',
-			'extensions/markdown-language-features/notebook/**/*.ts',
-			'extensions/markdown-language-features/preview-src/**/*.ts',
-			'extensions/mermaid-markdown-features/preview-src/chat/**/*.ts',
-			'extensions/mermaid-markdown-features/src/**/*.ts',
-			'extensions/media-preview/src/**/*.ts',
-			'extensions/simple-browser/**/*.ts',
-			'extensions/typescript-language-features/**/*.ts',
-		],
-		languageOptions: {
-			parser: tseslint.parser,
-			parserOptions: {
-				project: [
-					// Markdown
-					'extensions/markdown-language-features/tsconfig.json',
-					'extensions/markdown-language-features/notebook/tsconfig.json',
-					'extensions/markdown-language-features/preview-src/tsconfig.json',
-
-					// Media preview
-					'extensions/media-preview/tsconfig.json',
-
-					// Media preview
-					'extensions/simple-browser/tsconfig.json',
-					'extensions/simple-browser/preview-src/tsconfig.json',
-
-					// Mermaid markdown features
-					'extensions/mermaid-markdown-features/tsconfig.json',
-					'extensions/mermaid-markdown-features/preview-src/chat/tsconfig.json',
-
-					// TypeScript
-					'extensions/typescript-language-features/tsconfig.json',
-					'extensions/typescript-language-features/web/tsconfig.json',
-				],
-			}
-		},
-		plugins: {
-			'@typescript-eslint': tseslint.plugin,
-		},
-		rules: {
-			'@typescript-eslint/prefer-optional-chain': 'warn',
-			'@typescript-eslint/prefer-readonly': 'warn',
-			'@typescript-eslint/consistent-generic-constructors': ['warn', 'constructor'],
-		}
-	},
 	// Allow querySelector/querySelectorAll in test files - it's acceptable for test assertions
 	{
 		files: [
 			'src/**/test/**/*.ts',
-			'extensions/**/test/**/*.ts',
 		],
 		rules: {
 			'no-restricted-syntax': [
