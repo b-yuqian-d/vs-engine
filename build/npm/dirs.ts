@@ -19,6 +19,7 @@ export const dirs = [
 	'test/integration/browser',
 	'test/monaco',
 	'test/smoke',
+	'test/scenario',
 	'test/mcp',
 ];
 
