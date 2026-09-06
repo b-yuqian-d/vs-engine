@@ -282,6 +282,6 @@ export async function createAgentHostTelemetryService(options: IAgentHostTelemet
 
 function parseLaunchTelemetryLevel(value: string | undefined): TelemetryLevel {
 	return value === undefined
-		? TelemetryLevel.USAGE
+		? TelemetryLevel.NONE
 		: agentHostConfigValueToTelemetryLevel(value) ?? TelemetryLevel.NONE;
 }

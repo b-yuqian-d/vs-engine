@@ -23,7 +23,7 @@ import { ITelemetryService } from '../../../../platform/telemetry/common/telemet
 import { DisablementReason, IUpdateService, State, StateType } from '../../../../platform/update/common/update.js';
 import { IWorkbenchContribution } from '../../../common/contributions.js';
 import { IHostService } from '../../../services/host/browser/host.js';
-import { UpdateTitleBarChatInProgressContext, UpdateTitleBarContext, UpdateTitleBarEditorVisibleContext } from '../common/update.js';
+import { UpdateTitleBarContext, UpdateTitleBarEditorVisibleContext } from '../common/update.js';
 import { computeProgressPercent } from '../common/updateUtils.js';
 import './media/updateTitleBarEntry.css';
 import { UpdateTooltip } from './updateTooltip.js';
